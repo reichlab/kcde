@@ -1,0 +1,120 @@
+%\VignetteIndexEntry{The kcde package}
+%\VignetteEngine{knitr::knitr}
+
+\documentclass[fleqn]{article}
+
+\usepackage{geometry}
+\geometry{letterpaper, top=1.5cm, left=2cm, right=2cm}
+
+\usepackage{amssymb, amsmath, amsfonts}
+
+
+\include{GrandMacros}
+\newcommand{\cdf}{{c.d.f.} }
+\newcommand{\pdf}{{p.d.f.} }
+\newcommand{\ind}{\mathbb{I}}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<InitialBlock, echo = FALSE>>=
+opts_knit$set(concordance=TRUE)
+opts_chunk$set(echo=FALSE)
+
+suppressMessages(library(lubridate))
+
+suppressMessages(library(grid))
+suppressMessages(library(ggplot2))
+
+suppressMessages(library(plyr))
+suppressMessages(library(dplyr))
+suppressMessages(library(reshape))
+
+suppressMessages(library(ssr))
+@
+
+\maketitle
+
+\section{Introduction}
+\label{sec:Intro}
+
+Mixed continuous and discrete, non-diagonal bw, smoothing, periodic kernel
+specification
+
+
+\section{Method Description}
+\label{sec:MethodDescription}
+
+Suppose we observe $\bz_t = \{z_{t,1}, \ldots, z_{t,D}\} \in \mathbb{R}^D$ at each point in time $t = 1, \ldots, T$.  Our goal is to obtain a predictive distribution for one of the observed variables, with index $d_{pred} \in \{1, \ldots, D\}$, over a range of prediction horizons contained in the set $\mathcal{P}$.  For example, if we have weekly data and we are interested in obtaining predictions for a range between 4 and 6 weeks after the most recent observation then $\mathcal{P} = \{4, 5, 6\}$.  Let $P$ be the largest element of the set $\mathcal{P}$ of prediction horizons.
+
+In order to perform prediction, we will use lagged observations.  Let $\bl^{max} = (l^{max}_1, \ldots, l^{max}_D)$ specify the maximum number of lags for each observed variable that may be used for prediction, and let $L = \max{d} l^{max}_d$ be the overall largest lag that may be used across all variables.  In the estimation procedure we describe in Section~\ref{sec:Estimation}, we will select a subset of these lags to actually use in the predictions.  We capture which lags are actually used in the vector 
+\begin{align*}
+&\bu = (u_{1,0}, \ldots, u_{1, l^{max}_1}, \ldots, u_{D,0}, \ldots, u_{D, l^{max}_D}) \text{, where} \\
+&u_{d, l} = \begin{cases} 0 \text{ if lag $l$ of variable $d$ is not used in forming predictions} \\ 1 \text{ if lag $l$ of variable $d$ is used in forming predictions.} \end{cases}
+\end{align*}
+
+By analogy with the standard notation in autoregressive models, we define
+\begin{align*}
+&\by_t = (z_{t, d_{pred}}, \ldots, B^{(P - 1)} z_{t, d_{pred}}) \text{ and} \\
+&\bx_t = (B^{(P)} z_{t, 1}, \ldots, B^{(P + l^{max}_1 - 1)} z_{t, 1}, \ldots, B^{(P)} z_{t, D}, \ldots, B^{(P + l^{max}_D - 1)} z_{t, D})
+\end{align*}
+Here, $B^{(a)}$ is the backshift operator defined by $B^{(a)} z_{t, d} = z_{t - a, d}$.  Note that the lengths of $\by_t$ and $\bx_t$, as well as exactly which lags are used to form them, depend on $\mathcal{P}$ and $\bl^{max}$; we suppress this dependence in the notation for the sake of clarity.  The vector $\by_t$ represents the prediction target when our most recent observation was made at time $t - P$: the vector of observed values at each prediction horizon $p \in \mathcal{P}$.  The variable $\bx_t$ represents the vector of all lagged covariates that are available for use in performing prediction.
+
+To make the notation concrete, suppose that $\bz_t$ contains the observed case count for week $t$ in San Juan, the observed case count for week $t$ in Iquitos, and the date on Monday of week $t$, and our goal is to predict the weekly case count in San Juan.  Then $D = 3$ and $d_{pred} = 1$.  If we want to predict the weekly case counts for the two weeks after the most recently observation, then $p = 2$.  If we specify that the model may include the two most recent observations for the case counts in San Juan and Iquitos, but only the time index at the most recent observation then $\bl^{max} = (1, 1, 0)$.  If our current model uses only the most recently observed case counts for San Juan and Iquitos then $\bu = (1, 0, 1, 0, 0)$, where the 1's are in the positions of the $\bu$ vector representing lag 0 of the counts for San Juan and lag 0 of the counts for Iquitos.  The variable $y_t^{(P)}$ is a vector containing the observed case counts for San Juan in weeks $t + 1$ and $t + 2$; $\bx_t^{(\bl^{max})}$ contains the observed case counts for San Juan and Iquitos in weeks $t$ and $t - 1$ as well as the time index variable in week $t$.
+
+In order to perform prediction, we regard $\{(\by_t, \bx_t), t = 1 + P + L, \ldots, T\}$ as a sample from the joint distribution of $(\bY, \bX)$.  We wish to estimate the conditional distribution of $\bY | \bX$.  In order to do this, we employ kernel density estimation.  Let $K^{\bY}(\by, \by^*, H^{\bY})$ and $K^{\bX}(\bx, \bx^*, H^{\bX})$ be kernel functions centered at $\by^*$ and $\bx^*$ respectively and with bandwidth matrices $H^{\bY}$ and $H^{\bX}$.  We estimate the conditional distribution of $\bY | \bX$ as follows:
+\begin{align}
+&\widehat{f}_{\bY|\bX}(\by | \bX = \bx) = \frac{\widehat{f}_{\bY, \bX}(\by, \bx)}{\widehat{f}_{\bX}(\bx)} \label{eqn:KDECondDef} \\
+&\qquad = \frac{\sum_{t \in \tau} K^{\bY, \bX}\{(\by, \bx), (\by_t, \bx_t), H^{\bY, \bX}\}}{\sum_{t \in \tau} K^{\bX}(\bx, \bx_t, H^{\bX}) } \label{eqn:KDESubKDEJtMarginal} \\
+&\qquad = \frac{\sum_{t \in \tau} K^{\bY | \bX}(\by, \by_t | \bx, \bx_t, H^{\bY, \bX}) K^{\bX}(\bx, \bx_t, H^{\bX})}{\sum_{t \in \tau} K^{\bX}(\bx, \bx_t, H^{\bX}) } \label{eqn:KDESubKDEJtMarginal} \\
+&\qquad = \sum_{t \in \tau} w_t K^{\bY | \bX}(\by, \by_t | \bx, \bx_t, H^{\bY, \bX}) \text{, where} \label{eqn:KDEwt} \\
+&w_t = \frac{ K^{\bX}(\bx, \bx_t, H^{\bX}) }{\sum_{t^* \in \tau} K^{\bX}(\bx, \bx_{t^*}, H^{\bX}) } \label{eqn:KDEWeightsDef}
+\end{align}
+
+In Equation~\eqref{eqn:KDECondDef}, we are simply making use of the fact that the conditional density for $\bY | \bX$ can be written as the quotient of the joint density for $(\bY, \bX)$ and the marginal density for $\bX$.  In Equation~\eqref{eqn:KDESubKDEJtMarginal}, we obtain separate kernel density estimates for the joint and marginal densities in this quotient.  In Equation~\eqref{eqn:KDEwt}, we rewrite this quotient by passing the denominator of Equation~\eqref{eqn:KDESubKDEJtMarginal} into the summation in the numerator.  We can interpret the result as a weighted kernel density estimate, where each observation $t \in \tau$ contributes a different amount to the final conditional density estimate.  The amount of the contribution from observation $t$ is given by the weight $w_t$, which effectively measures how similar $\bx_t$ is to the point $\bx$ at which we are estimating the conditional density.  If $\bx_t^{(\bl^{max})}$ is similar to $\bx_{t^*}^{(\bl^{max})}$, a large weight is assigned to $t$; if $\bx_t^{(\bl^{max})}$ is different from $\bx_{t^*}^{(\bl^{max})}$, a small weight is assigned to $t$.
+
+In kernel density estimation, it is generally required that the kernel functions integrate to $1$ in order to obtain valid density estimates.  However, after conditioning on $\bX$, it is no longer necessary that $K^{\bX}(\bx, \bx_t, H^{\bX})$ integrate to $1$.  In fact, as can be seen from Equation~\eqref{eqn:KDEWeightsDef}, any multiplicative constants of proportionality will cancel out when we form the observation weights.  We can therefore regard $K^{\bX}(\bx, \bx_t, H^{\bX})$ as a more general weighting function that measures the similarity between $\bx$ and $\bx_t$.  As we will see, eliminating the constraint that $K^{\bX}$ integrates to $1$ is a useful expansion the space of functions that can be used in calculating the observation weights.  However, we still require that $K^{\bY}$ integrates to $1$.
+
+In Equations \eqref{eqn:KDECondDef} through \eqref{eqn:KDEWeightsDef}, $\tau$ is an index set of time points used in obtaining the density estimate.  In most settings, we can take $\tau = \{1 + P + L, \ldots, T\}$.  These are the time points for which we can form the lagged observation vector $\bx_t$ and the prediction target vector $\by_t$.  However, we will place additional restrictions on the time points included in $\tau$ in the cross-validation procedure discussed in Section \ref{sec:Estimation}.
+
+If we wish to obtain point predictions, we can use a summary of the predictive density.  For example, if we take the expected value, we obtain kernel regression:
+\begin{align}
+&(\widehat{\bY} | \bX = \bx) = \mathbb{E}_{\widehat{f}_{\bY|\bX}}\{\bY | \bX = \bx\} \label{eqn:PtPredDef} \\
+&\qquad = \int \sum_{t \in \tau} w_t K^{\bY}(\by, \by_t, H^{\bY}) \by \, d \by  \label{eqn:PtPredKDE} \\
+&\qquad = \sum_{t \in \tau} w_t \by_t  \label{eqn:PtPredFinal}
+\end{align}
+The equality in Equation~\eqref{eqn:PtPredFinal} holds if the kernel function $K^{\bY}(\by, \by_t, H^{\bY})$ is symmetric about $\by_t$, or more generally if it is the pdf of a random variable with expected value $\by_t$.
+
+
+Another alternative that we pursue is the use of smoothed observations in forming the lagged observation vectors.  We use smoothed case counts on a log scale for the weighting kernels, and the unsmoothed case counts on the original scale for the prediction kernels.
+
+\section{Parameter Estimation}
+\label{sec:Estimation}
+
+We use cross-validation to select the variables that are used in the model and estimate the corresponding bandwidth parameters by (approximately) minimizing a cross-validation measure of the quality of the predictions obtained from the model.  Formally,
+\begin{align}
+&(\widehat{\bu}, \widehat{H}^{\bX}, \widehat{H}^{\bY}) \approx \argmin{(\bu, H^{\bX}, H^{\bY})} \sum_{t^* = 1 + P + L}^T Q[ \by_{t^*}, \widehat{f}(\by | \bX = \bx_{t^*} ; \bu, H^{\bX}, H^{\bY}, \{ (\by_t, \bx_t): t \in \tau_{t^*} \}) ] \label{eqn:ParamEst}
+\end{align}
+Here, $Q$ is a loss function that measures the quality of the estimated density $\widehat{f}$ given an observation $\by_{t^*}$.  We have made the dependence of this estimated density on the the parameters $\bu$, $H^{\bx}$, and $H^{\bY}$, as well as on the data $\{ (\by_t, \bx_t): t \in \tau_{t^*} \}$, explicit in the notation.  In order to reduce the potential for our parameter estimates to be affected by local correlation in the time series, we eliminate all time points that fall within one year of $t^*$ from the index set $\tau_{t^*}$ used to form the conditional density estimate $\widehat{f}(\by | \bX = \bx_{t^*} ; \bu, H^{\bX}, H^{\bY}, \{ (\by_t, \bx_t): t \in \tau_{t^*} \})$.
+
+\lboxit{Talk about proper scoring rules and our particular choice of $Q$.}
+
+We use a forward/backward stagewise procedure to obtain the set of combinations of variables and lags that are included in the final model (represented by $\bu$).  For each candidate model, we use the limited memory box constrained optimization procedure of \cite{byrd1995limitedmemoryoptim} to estimate the bandwidth parameters.  The approximation in Equation~\eqref{eqn:ParamEst} is due to the fact that this optimization procedure may not find a global minimum.
+
+\section{Publications}
+\label{sec:Publications}
+
+\begingroup
+\renewcommand{\section}[2]{}
+\bibliographystyle{plainnat}
+\bibliography{SSRbib}
+\endgroup
+
+
+
+\section{Examples}
+\label{sec:examples}
+
+
+
+\end{document}

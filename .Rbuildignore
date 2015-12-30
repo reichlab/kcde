@@ -1,0 +1,3 @@
+method-description
+^.*\.Rproj$
+^\.Rproj\.user$
