@@ -1,30 +1,12 @@
-## Kernel functions
+## pdtmvn kernel function
 ## 
-## periodic_kernel
 ## get_col_inds_continuous_dicrete_vars_used
 ## pdtmvn_kernel
+## rpdtmvn_kernel
 ## compute_pdtmvn_kernel_bw_params_from_bw_eigen
 ## vectorize_params_pdtmvn_kernel
 ## update_theta_from_vectorized_theta_est_pdtmvn_kernel
 ## initialize_params_pdtmvn_kernel
-
-#' Periodic kernel function
-#' 
-#' @param x a vector of values at which to evaluate the kernel function
-#' @param center a real number, center point for the kernel function
-#' @param period kernel period
-#' @param bw kernel bandwidth
-#' 
-#' @return vector of the kernel function value at each point in x
-periodic_kernel <- function(x, center, period, bw, log) {
-    result <- -0.5 * (sin(period * (x - center)) / bw)^2
-    
-    if(log) {
-        return(result)
-    } else {
-        return(exp(result))
-    }
-}
 
 #' Create two integer vectors with indices of columns in x corresponding to
 #' continuous variables and discrete variables.  These integer vectors are
