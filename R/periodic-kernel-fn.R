@@ -11,7 +11,7 @@
 #' 
 #' @return vector of the kernel function value at each point in x
 periodic_kernel <- function(x, center, period, bw, log, ...) {
-    result <- -0.5 * (sin(period * (x - center)) / bw)^2
+    result <- -0.5 * (sin(period * (as.vector(as.matrix(x)) - as.vector(as.matrix(center)))) / bw)^2
     
     if(log) {
         return(result)
@@ -74,13 +74,13 @@ update_theta_from_vectorized_theta_est_periodic_kernel <- function(theta_est_vec
 #' @param kcde_control list of control parameters to kcde
 #' @param ... used to absorb other arguments in the function call
 #' 
-#' @return list with initial values of parameters to the pdtmvn_kernel
+#' @return list with initial values of parameters to the periodic_kernel
 initialize_params_periodic_kernel <- function(x,
-    period,
+    prev_theta,
 	...) {
-    return(list(
-        bw = 0.1,
-        log_bw = log(0.1),
-        period = period
-    ))
+    new_theta <- prev_theta
+    new_theta$bw <- 0.1
+    new_theta$log_bw <- log(0.1)
+    
+    return(new_theta)
 }

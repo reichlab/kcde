@@ -14,8 +14,6 @@
 #'     observation process used for calculating weights
 #' @param y_names a character vector of length 1 containing the name of the
 #'     variable in the data data frame to use as the target for prediction
-#' @param time_name (optional) a character vector of length 1 containing the
-#'     name of the variable in the data data frame to use as the time.
 #' @param prediction_horizons integer vector: the number of time steps between
 #'     the last observation and the time at which we make a prediction
 #' @param kernel_components a list with one component for each component of the
@@ -57,9 +55,11 @@ create_kcde_control <- function(X_names,
         prediction_horizons,
         kernel_components,
         crossval_buffer,
-        loss_fn_name,
-        loss_fn_args,
-        par_packages = NULL) {
+        loss_fn,
+        loss_fn_prediction_type,
+        loss_args,
+        par_packages = NULL,
+        na.action = "na.omit") {
     kcde_control <- list()
 
     kcde_control$X_names <- X_names
@@ -72,9 +72,14 @@ create_kcde_control <- function(X_names,
     
     kcde_control$crossval_buffer <- crossval_buffer
     
-    kcde_control$loss_fn_name <- loss_fn_name
-    kcde_control$loss_fn_args <- loss_fn_args
-
+    kcde_control$loss_fn <- loss_fn
+    kcde_control$loss_fn_prediction_type <- loss_fn_prediction_type
+    kcde_control$loss_args <- loss_args
+    
+    kcde_control$par_packages <- par_packages
+    
+    kcde_control$na.action <- na.action
+    
     return(kcde_control)
 }
 
@@ -86,17 +91,14 @@ create_kcde_control <- function(X_names,
 #'     observation process used for calculating weights
 #' @param y_names a character vector of length 1 containing the name of the
 #'     variable in the data data frame to use as the target for prediction
-#' @param time_name (optional) a character vector of length 1 containing the
-#'     name of the variable in the data data frame to use as the time.
 #' @param data a data frame where rows are consecutive observations
 #' 
 #' @return the list of kcde_control parameters
-create_kcde_control_default <- function(X_names, y_names, time_name, data) {
+create_kcde_control_default <- function(X_names, y_names, data) {
     kcde_control <- list()
     
     kcde_control$X_names <- X_names
     kcde_control$y_names <- y_names
-    kcde_control$time_name <- time_name
     
     kcde_control$kernel_components <- get_default_kernel_components(X_names,
         y_names,
@@ -122,7 +124,7 @@ create_kcde_control_default <- function(X_names, y_names, time_name, data) {
 #' @param data a data frame where rows are consecutive observations
 #' 
 #' @return a list of default parameters for kernel components -- probably all bad
-get_default_kernel_components <- function(X_names, y_names, time_name, data) {
+get_default_kernel_components <- function(X_names, y_names, data) {
 	stop("Function get_default_kernel_components is not yet implemented")
 
     return(kernel_components)

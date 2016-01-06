@@ -217,8 +217,8 @@ compute_pdtmvn_kernel_bw_params_from_bw_eigen <- function(bw_evecs,
 #'
 #' @return vector containing parameters that are estimated on a scale
 #'     suitable for numerical optimization
-vectorize_params_pdtmvn_kernel <- function(theta_list, parameterization, ...) {
-	if(identical(parameterization, "bw-diagonalized-est-eigenvalues")) {
+vectorize_params_pdtmvn_kernel <- function(theta_list, ...) {
+	if(identical(theta_list$parameterization, "bw-diagonalized-est-eigenvalues")) {
 		return(theta_list$log_bw_evals)
 	} else {
 		stop("Invalid parameterization for pdtmvn kernel function")
@@ -241,8 +241,8 @@ vectorize_params_pdtmvn_kernel <- function(theta_list, parameterization, ...) {
 #' @param kcde_control list of control parameters to kcde
 #' 
 #' @return list of parameters to pdtmvn_kernel
-update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vector, theta, parameterization) {
-	if(identical(parameterization, "bw-diagonalized-est-eigenvalues")) {
+update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vector, theta) {
+	if(identical(theta$parameterization, "bw-diagonalized-est-eigenvalues")) {
 		num_bw_evals <- ncol(theta$bw_evecs)
 		temp <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(bw_evecs = theta$bw_evecs,
 			bw_evals = exp(theta_est_vector[seq_len(num_bw_evals)]),
@@ -276,40 +276,37 @@ update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vecto
 #' @param ... used to absorb other arguments in the function call
 #' 
 #' @return list with initial values of parameters to the pdtmvn_kernel
-initialize_params_pdtmvn_kernel <- function(parameterization,
+initialize_params_pdtmvn_kernel <- function(prev_theta,
 	x,
-	continuous_vars,
-	discrete_vars,
-	discrete_var_range_fns,
-	lower,
-	upper,
 	...) {
-	require(robust)
 	
-	if(identical(parameterization, "bw-diagonalized-est-eigenvalues")) {
+    new_theta <- prev_theta
+    
+	if(identical(new_theta$parameterization, "bw-diagonalized-est-eigenvalues")) {
 		continuous_discrete_var_col_inds <-
 			get_col_inds_continuous_discrete_vars_used(colnames(x),
-				continuous_vars,
-				discrete_vars)
+                new_theta$continuous_vars,
+                new_theta$discrete_vars)
 		
-		sample_cov_hat <- robust::covRob(x)$cov
+        if(ncol(x) > 1) {
+            require(robust)
+            sample_cov_hat <- robust::covRob(x)$cov
+        } else {
+            sample_cov_hat <- matrix(var(x))
+        }
 		sample_cov_eigen <- eigen(sample_cov_hat)
 		
-		return(c(
-			compute_pdtmvn_kernel_bw_params_from_bw_eigen(bw_evecs = sample_cov_eigen$vectors,
-			    bw_evals = sample_cov_eigen$values,
-				continuous_discrete_var_col_inds$continuous_vars,
-				continuous_discrete_var_col_inds$discrete_vars),
-			list(
-				continuous_vars = continuous_vars,
-				discrete_vars = discrete_vars,
-				continuous_var_col_inds = continuous_discrete_var_col_inds$continuous_vars,
-				discrete_var_col_inds = continuous_discrete_var_col_inds$discrete_vars,
-				discrete_var_range_fns = discrete_var_range_fns,
-				lower = lower[colnames(x)],
-				upper = upper[colnames(x)])
-		))
+        bw_params <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(bw_evecs = sample_cov_eigen$vectors,
+		    bw_evals = sample_cov_eigen$values,
+			continuous_discrete_var_col_inds$continuous_vars,
+			continuous_discrete_var_col_inds$discrete_vars)
+		new_theta[names(bw_params)] <- bw_params
+        
+		new_theta$continuous_var_col_inds = continuous_discrete_var_col_inds$continuous_vars
+        new_theta$discrete_var_col_inds = continuous_discrete_var_col_inds$discrete_vars
 	} else {
 		stop("Invalid parameterization for pdtmvn kernel function")
 	}
+    
+    return(new_theta)
 }

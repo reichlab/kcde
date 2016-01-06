@@ -9,28 +9,33 @@
 #' Initialize parameter values.
 #'
 #' @param prev_theta previous theta values before update to variables and lags
-#' @param updated_vars_and_lags lags after update
+#' @param updated_vars_and_offsets lags after update
 #' @param update_var_name character; the name of the variable added/removed from the model
-#' @param update_lag_value integer; the lag that was added/removed from the model
+#' @param update_offset_value integer; the offset that was added/removed from the model
+#' @param update_offset_type integer; the type of the offset that was added/removed from the model
 #' @param data data matrix
 #' @param kcde_control list of control parameters for kcde
 #' 
 #' @return list of theta parameters
 initialize_theta <- function(prev_theta,
-    updated_vars_and_lags,
+    updated_vars_and_offsets,
     update_var_name,
-    update_lag_value,
+    update_offset_value,
+    update_offset_type,
     data,
     kcde_control) {
     theta <- lapply(seq_along(kcde_control$kernel_components),
         function(ind) {
-            updated_var_and_lag_in_current_component <-
-                any(kcde_control$kernel_components[[ind]]$vars_and_lags$var_name == update_var_name &
-                        kcde_control$kernel_components[[ind]]$vars_and_lags$lag_value == update_lag_value)
-            if(updated_var_and_lag_in_current_component ||
+            updated_var_and_offset_in_current_component <- any(sapply(seq_along(update_var_name),
+                function(update_ind) {
+                    any(kcde_control$kernel_components[[ind]]$vars_and_offsets$var_name == update_var_name[update_ind] &
+                        kcde_control$kernel_components[[ind]]$vars_and_offsets$offset_value == update_offset_value[update_ind] &
+                        kcde_control$kernel_components[[ind]]$vars_and_offsets$offset_type == update_offset_type[update_ind])
+                }))
+            if(updated_var_and_offset_in_current_component ||
                 is.null(prev_theta[[ind]])) {
                 potential_cols_in_component <-
-                    kcde_control$kernel_components[[ind]]$vars_and_lags$combined_name
+                    kcde_control$kernel_components[[ind]]$vars_and_offsets$combined_name
                 cols_used <- colnames(data) %in% potential_cols_in_component
                 if(length(cols_used) > 0) {
                     fn_name <- kcde_control$kernel_components[[ind]]$
@@ -39,8 +44,10 @@ initialize_theta <- function(prev_theta,
                     fn_args <- kcde_control$kernel_components[[ind]]$
                         initialize_kernel_params_args
                     fn_args$update_var_name <- update_var_name
-                    fn_args$update_lag_value <- update_lag_value
-                    fn_args$prev_theta <- prev_theta[[ind]]
+                    fn_args$update_offset_value <- update_offset_value
+                    fn_args$update_offset_type <- update_offset_type
+                    fn_args$prev_theta <- c(prev_theta[[ind]],
+                        kcde_control$kernel_components[[ind]]$theta_fixed)
                     fn_args$kcde_control <- kcde_control
                     fn_args$x <- data[, cols_used, drop=FALSE]
                     
@@ -65,14 +72,11 @@ initialize_theta <- function(prev_theta,
 #' @param lags list representing combinations of variables and lags
 #'     included in the model
 #' @param kcde_control control parameters for the kcde fit
-#' @param add_fixed_params boolean -- should parameters that are being held
-#'     fixed in the estimation process be added to the return value?
 #' 
 #' @return numeric vector with parameter values
 extract_vectorized_theta_est_from_theta <- function(theta,
-	vars_and_lags,
-    kcde_control,
-    add_fixed_params = FALSE) {
+	vars_and_offsets,
+    kcde_control) {
     
     theta_vector <- c()
     
@@ -81,7 +85,7 @@ extract_vectorized_theta_est_from_theta <- function(theta,
         theta_vector <- c(theta_vector, do.call(
 			kcde_control$kernel_components[[ind]]$vectorize_kernel_params_fn,
        		c(list(theta_list = theta[[ind]],
-				vars_and_lags = vars_and_lags),
+				vars_and_offsets = vars_and_offsets),
        			kcde_control$kernel_components[[ind]]$vectorize_kernel_params_args)
        	))
     }
@@ -157,14 +161,13 @@ compute_kernel_values <- function(train_obs,
     
     for(ind in seq_along(kernel_components)) {
 		combined_names_in_component <-
-			kernel_components[[ind]]$vars_and_lags$combined_name
+			kernel_components[[ind]]$vars_and_offsets$combined_name
         col_names <- colnames(train_obs)[
             colnames(train_obs) %in% combined_names_in_component]
         
         if(length(col_names) > 0) {
 	        ## assemble arguments to kernel function
-	        kernel_fn_args <- c(theta[[ind]],
-	            kernel_components[[ind]]$theta_fixed)
+	        kernel_fn_args <- theta[[ind]]
 	        kernel_fn_args$x <- train_obs[, col_names, drop = FALSE]
 	        kernel_fn_args$center <- prediction_obs[, col_names, drop = FALSE]
 	        kernel_fn_args$log <- TRUE
@@ -218,7 +221,7 @@ simulate_values_from_product_kernel <- function(n,
     
     for(ind in seq_along(kernel_components)) {
         combined_names_in_component <-
-            kernel_components[[ind]]$vars_and_lags$combined_name
+            kernel_components[[ind]]$vars_and_offsets$combined_name
         conditioning_col_names <- colnames(conditioning_obs)[
             colnames(conditioning_obs) %in% combined_names_in_component]
         center_col_names <- colnames(center)[
@@ -231,8 +234,7 @@ simulate_values_from_product_kernel <- function(n,
         
         if(length(center_col_names) > 0) {
             ## assemble arguments to kernel function
-            rkernel_args <- c(theta[[ind]],
-                kernel_components[[ind]]$theta_fixed)
+            rkernel_args <- theta[[ind]]
             rkernel_args$n <- n
             rkernel_args$conditioning_obs <-
                 conditioning_obs[, conditioning_col_names, drop = FALSE]

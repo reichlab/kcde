@@ -23,36 +23,43 @@
 #'     of prediction_type
 kcde_predict <- function(kcde_fit,
         prediction_data,
-        leading_rows_to_drop=max(kcde_fit$vars_and_lags$lag_value),
-        additional_training_rows_to_drop=NULL,
+        leading_rows_to_drop = max(kcde_fit$vars_and_offsets$offset_value[kcde_fit$vars_and_offsets$offset_type == "lag"]),
+        trailing_rows_to_drop = max(kcde_fit$vars_and_offsets$offset_value[kcde_fit$vars_and_offsets$offset_type == "horizon"]),
+        additional_training_rows_to_drop = NULL,
         prediction_horizon,
-        prediction_type="distribution",
+        prediction_type = "distribution",
         n) {
     ## get training and prediction examples
-    training_examples <- assemble_training_examples(kcde_fit$train_data,
-        kcde_fit$vars_and_lags,
-        kcde_fit$y_names,
-        leading_rows_to_drop,
-        additional_training_rows_to_drop,
-        prediction_horizon,
-        drop_trailing_rows=TRUE)
+    ## create data frame of "examples" -- lagged observation vectors and
+    ## corresponding prediction targets
+    training_examples <- compute_offset_obs_vecs(data = kcde_fit$train_data,
+        vars_and_offsets = kcde_fit$vars_and_offsets,
+        time_name = kcde_control$time_name,
+        leading_rows_to_drop = leading_rows_to_drop,
+        trailing_rows_to_drop = trailing_rows_to_drop,
+        additional_rows_to_drop = NULL,
+        na.action = kcde_control$na.action)
     
-    prediction_examples <- assemble_training_examples(prediction_data,
-        kcde_fit$vars_and_lags,
-        kcde_fit$y_names,
-        leading_rows_to_drop,
-        c(),
-        prediction_horizon,
-        drop_trailing_rows=FALSE)
+    prediction_examples <- compute_offset_obs_vecs(data = prediction_data,
+        vars_and_offsets = kcde_fit$vars_and_offsets[kcde_fit$vars_and_offsets$offset_type == "lag", , drop = FALSE],
+        time_name = kcde_control$time_name,
+        leading_rows_to_drop = leading_rows_to_drop,
+        trailing_rows_to_drop = 0,
+        additional_rows_to_drop = NULL,
+        na.action = kcde_control$na.action)
+    
+    predictive_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[vars_and_offsets$offset_type == "lag"]
+    target_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[vars_and_offsets$offset_type == "horizon"]
     
     ## do prediction
-    kcde_predict_given_lagged_obs(training_examples$lagged_obs,
-        training_examples$lead_obs,
-        prediction_examples$lagged_obs,
-        prediction_examples$lead_obs,
-        kcde_fit,
-        prediction_type,
-        n)
+    return(kcde_predict_given_lagged_obs(
+            train_lagged_obs = training_examples[, predictive_var_combined_names, drop = FALSE],
+            train_lead_obs = training_examples[, target_var_combined_names, drop = FALSE],
+            prediction_lagged_obs = prediction_examples[, predictive_var_combined_names, drop = FALSE],
+            prediction_test_lead_obs = prediction_examples[, target_var_combined_names, drop = FALSE],
+            kcde_fit = kcde_fit,
+            prediction_type = prediction_type,
+            n = n))
 }
 
 #' Make predictions from an estimated kcde model forward prediction_horizon time
