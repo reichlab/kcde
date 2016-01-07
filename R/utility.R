@@ -182,6 +182,11 @@ log_score_loss <- function(prediction_result, ...) {
     return(sum(prediction_result))
 }
 
+#' Compute negative log score based on a vector of log(p(data)) where p is a predictive distribution
+neg_log_score_loss <- function(prediction_result, ...) {
+    return(-1 * sum(prediction_result))
+}
+
 #' Compute MASE from predictions that are in the form of kernel weights and
 #' centers.  This is currently broken because we need predictions for a whole
 #' time series to compute MASE, and the current "implementation" only takes
