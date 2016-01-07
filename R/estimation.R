@@ -141,15 +141,11 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
         )
         crossval_results <- crossval_results[non_null_components]
         
-        all_evaluated_models <-
-            c(all_evaluated_models,
-                lapply(crossval_results, function(component) {
-                    component$potential_step_result
-                }))
+        all_evaluated_models <- c(all_evaluated_models, crossval_results)
         all_evaluated_model_descriptors <-
             c(all_evaluated_model_descriptors,
                 lapply(crossval_results, function(component) {
-                    component$potential_step_result["vars_and_offsets"]
+                    component$vars_and_offsets
                 }))
         
         if(length(crossval_results) == 0L) {
@@ -337,10 +333,8 @@ kcde_crossval_estimate_parameter_loss <- function(theta_est_vector,
             ## t_pred +/- kcde_control$crossval_buffer
             pred_time <- cross_validation_examples[t_pred, kcde_control$time_name]
             t_train <- seq_len(nrow(cross_validation_examples))
-            t_train_near_t_pred <- sapply(cross_validation_examples[, kcde_control$time_name],
-                function(train_time) {
-                    abs(train_time - pred_time) <= kcde_control$crossval_buffer
-                })
+            t_train_near_t_pred <- 
+                abs(cross_validation_examples[, kcde_control$time_name] - pred_time) <= kcde_control$crossval_buffer
             t_train <- t_train[! t_train_near_t_pred]
             
             ## calculate kernel weights and centers for prediction at
@@ -389,10 +383,7 @@ kcde_crossval_estimate_parameter_loss <- function(theta_est_vector,
             return(sum(crossval_loss_by_prediction_target))
         })
     
-    cat("\n")
-    print(theta_est_vector)
-    cat("\n")
-    cat(sum(crossval_loss_by_time_ind))
+#    cat(sum(crossval_loss_by_time_ind))
     
     if(any(is.na(crossval_loss_by_time_ind))) {
         ## parameters resulted in numerical instability?
