@@ -227,7 +227,8 @@ simulate_values_from_product_kernel <- function(n,
         center_col_names <- colnames(center)[
             colnames(center) %in% combined_names_in_component]
         
-        if(length(conditioning_col_names) > 0) {
+        if(length(conditioning_col_names) > 0 &&
+            conditioning_col_names %in% center_col_names) {
             simulated_values[, conditioning_col_names] <-
                 rep(conditioning_obs[, conditioning_col_names], each = n)
         }

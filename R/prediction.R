@@ -13,8 +13,6 @@
 #' 
 #' @param kcde_fit is an object representing a fitted kcde model
 #' @param prediction_data is a vector of data points to use in prediction
-#' @param prediction_horizon is an integer specifying the number of steps ahead
-#'     to perform prediction
 #' @param normalize_weights boolean, should the weights be normalized?
 #' @param prediction_type character; either "distribution" or "point",
 #'     indicating the type of prediction to perform.
@@ -26,7 +24,6 @@ kcde_predict <- function(kcde_fit,
         leading_rows_to_drop = max(kcde_fit$vars_and_offsets$offset_value[kcde_fit$vars_and_offsets$offset_type == "lag"]),
         trailing_rows_to_drop = max(kcde_fit$vars_and_offsets$offset_value[kcde_fit$vars_and_offsets$offset_type == "horizon"]),
         additional_training_rows_to_drop = NULL,
-        prediction_horizon,
         prediction_type = "distribution",
         n) {
     ## get training and prediction examples
@@ -48,8 +45,8 @@ kcde_predict <- function(kcde_fit,
         additional_rows_to_drop = NULL,
         na.action = kcde_control$na.action)
     
-    predictive_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[vars_and_offsets$offset_type == "lag"]
-    target_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[vars_and_offsets$offset_type == "horizon"]
+    predictive_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[kcde_fit$vars_and_offsets$offset_type == "lag"]
+    target_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[kcde_fit$vars_and_offsets$offset_type == "horizon"]
     
     ## do prediction
     return(kcde_predict_given_lagged_obs(
@@ -93,11 +90,11 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
     
     if(identical(prediction_type, "centers-and-weights")) {
         kernel_centers_and_weights <-
-            kcde_kernel_centers_and_weights_predict_given_lagged_obs(train_lagged_obs,
-                train_lead_obs,
-                prediction_lagged_obs,
-                kcde_fit,
-                normalize_weights)
+            kcde_kernel_centers_and_weights_predict_given_lagged_obs(
+                train_lagged_obs = train_lagged_obs,
+                train_lead_obs = train_lead_obs,
+                prediction_lagged_obs = prediction_lagged_obs,
+                kcde_fit = kcde_fit)
         
         return(kernel_centers_and_weights)
     } else if(identical(prediction_type, "distribution")) {
@@ -108,22 +105,22 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
             kcde_fit))
     } else if(identical(prediction_type, "point")) {
         kernel_centers_and_weights <-
-            kcde_kernel_centers_and_weights_predict_given_lagged_obs(train_lagged_obs,
-                train_lead_obs,
-                prediction_lagged_obs,
-                kcde_fit,
-                normalize_weights)
+            kcde_kernel_centers_and_weights_predict_given_lagged_obs(
+                train_lagged_obs = train_lagged_obs,
+                train_lead_obs = train_lead_obs,
+                prediction_lagged_obs = prediction_lagged_obs,
+                kcde_fit = kcde_fit)
         
         return(kcde_point_predict_given_kernel_centers_and_weights(
             kernel_centers_and_weights = kernel_centers_and_weights,
             kcde_fit = kcde_fit))
     } else if(identical(prediction_type, "sample")) {
         kernel_centers_and_weights <-
-            kcde_kernel_centers_and_weights_predict_given_lagged_obs(train_lagged_obs,
-                train_lead_obs,
-                prediction_lagged_obs,
-                kcde_fit,
-                normalize_weights)
+            kcde_kernel_centers_and_weights_predict_given_lagged_obs(
+                train_lagged_obs = train_lagged_obs,
+                train_lead_obs = train_lead_obs,
+                prediction_lagged_obs = prediction_lagged_obs,
+                kcde_fit = kcde_fit)
         
         return(kcde_sample_predict_given_kernel_centers_and_weights(
             n = n,
@@ -328,8 +325,8 @@ kcde_sample_predict_given_kernel_centers_and_weights <- function(n,
         result_inds <- which(sampled_kernel_inds == kernel_ind)
         
         result[result_inds, ] <- simulate_values_from_product_kernel(n = length(result_inds),
-            conditioning_obs = kernel_centers_and_weights$conditioning_vars[kernel_ind],
-            center = kernel_centers_and_weights$centers[kernel_ind],
+            conditioning_obs = kernel_centers_and_weights$conditioning_vars[kernel_ind, , drop = FALSE],
+            center = kernel_centers_and_weights$centers[kernel_ind, , drop = FALSE],
             kernel_components = kcde_fit$kcde_control$kernel_components,
             theta = kcde_fit$theta)
     }
