@@ -32,8 +32,9 @@ initialize_theta <- function(prev_theta,
                         kcde_control$kernel_components[[ind]]$vars_and_offsets$offset_value == update_offset_value[update_ind] &
                         kcde_control$kernel_components[[ind]]$vars_and_offsets$offset_type == update_offset_type[update_ind])
                 }))
-            if(updated_var_and_offset_in_current_component ||
-                is.null(prev_theta[[ind]])) {
+#            if(updated_var_and_offset_in_current_component ||
+#                is.null(prev_theta[[ind]])) {
+            if(updated_var_and_offset_in_current_component) {
                 potential_cols_in_component <-
                     kcde_control$kernel_components[[ind]]$vars_and_offsets$combined_name
                 cols_used <- colnames(data) %in% potential_cols_in_component

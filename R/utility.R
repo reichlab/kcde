@@ -128,8 +128,12 @@ compute_offset_obs_vecs <- function(data,
     ## create a data frame with one column for each entry in the vars_and_offsets argument
     result <- as.data.frame(matrix(NA,
         nrow=nrow(data),
-        ncol=nrow(vars_and_offsets) + 1))
-    colnames(result) <- c(vars_and_offsets$combined_name, time_name)
+        ncol=nrow(vars_and_offsets) + !missing(time_name)))
+    if(missing(time_name)) {
+        colnames(result) <- vars_and_offsets$combined_name
+    } else {
+        colnames(result) <- c(vars_and_offsets$combined_name, time_name)
+    }
     
     ## set column values in result
 	for(new_var_ind in seq_len(nrow(vars_and_offsets))) {
@@ -149,8 +153,10 @@ compute_offset_obs_vecs <- function(data,
 		result[result_inds, combined_name] <- data[data_inds, var_name]
 	}
     
-    result[, time_name] <- data[, time_name]
-	
+    if(!missing(time_name)) {
+        result[, time_name] <- data[, time_name]
+    }
+    
     ## drop specified rows
     if(length(rows_to_drop) > 0) {
         result <- result[-rows_to_drop, , drop=FALSE]

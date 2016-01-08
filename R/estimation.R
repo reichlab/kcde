@@ -98,7 +98,7 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
         ## corresponding parameter estimates
         
         ## commented out use of foreach for debugging purposes
-#        crossval_results <- foreach(i=seq_len(nrow(all_vars_and_offsets)),
+#        crossval_results <- foreach(i=seq_len(nrow(predictive_vars_and_offsets)),
 #            .packages=c("kcde", kcde_control$par_packages),
 #            .combine="c") %dopar% {
         crossval_results <- lapply(seq_len(nrow(predictive_vars_and_offsets)),
@@ -250,13 +250,23 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
     ##         estimation.
     ##     theta_fixed, list of values that will not be estimated, one component
     ##         for each component kernel function
-    theta_init <- initialize_theta(prev_theta = prev_theta,
-        updated_vars_and_offsets = updated_vars_and_offsets,
-        update_var_name = update_var_name,
-        update_offset_value = update_lag_value,
-        update_offset_type = "lag",
-        data = cross_validation_examples,
-        kcde_control = kcde_control)
+    if(identical(prev_theta, vector("list", length(kcde_control$kernel_components)))) {
+        theta_init <- initialize_theta(prev_theta = prev_theta,
+            updated_vars_and_offsets = updated_vars_and_offsets,
+            update_var_name = updated_vars_and_offsets$var_name,
+            update_offset_value = updated_vars_and_offsets$offset_value,
+            update_offset_type = updated_vars_and_offsets$offset_type,
+            data = cross_validation_examples,
+            kcde_control = kcde_control)
+    } else {
+        theta_init <- initialize_theta(prev_theta = prev_theta,
+            updated_vars_and_offsets = updated_vars_and_offsets,
+            update_var_name = update_var_name,
+            update_offset_value = update_lag_value,
+            update_offset_type = "lag",
+            data = cross_validation_examples,
+            kcde_control = kcde_control)
+    }
     
     theta_est_init <- extract_vectorized_theta_est_from_theta(theta = theta_init,
         vars_and_offsets = updated_vars_and_offsets,
