@@ -5,6 +5,8 @@ library(ggplot2)
 library(grid)
 library(kcde)
 library(proftools)
+library(doMC)
+
 
 usflu<-get_flu_data("national", "ilinet", years=1997:2015)
 ili_national <- transmute(usflu,
@@ -38,6 +40,30 @@ kernel_components <- list(
         update_theta_from_vectorized_theta_est_args = NULL
     ),
     list(
+        vars_and_offsets = data.frame(var_name = c("total_cases", "total_cases"),
+            offset_value = c(0L, 1L),
+            offset_type = c("lag", "lag"),
+            combined_name = c("total_cases_lag0", "total_cases_lag1"),
+            stringsAsFactors = FALSE),
+        kernel_fn = pdtmvn_kernel,
+        rkernel_fn = rpdtmvn_kernel,
+        theta_fixed = list(
+            parameterization = "bw-diagonalized-est-eigenvalues",
+            continuous_vars = c("total_cases_lag0", "total_cases_lag1"),
+            discrete_vars = NULL,
+            discrete_var_range_fns = NULL,
+            lower = c(total_cases_lag0 = -Inf, total_cases_lag1 = -Inf),
+            upper = c(total_cases_lag0 = Inf, total_cases_lag1 = Inf)
+        ),
+        theta_est = list("bw"),
+        initialize_kernel_params_fn = initialize_params_pdtmvn_kernel,
+        initialize_kernel_params_args = NULL,
+        vectorize_kernel_params_fn = vectorize_params_pdtmvn_kernel,
+        vectorize_kernel_params_args = NULL,
+        update_theta_from_vectorized_theta_est_fn = update_theta_from_vectorized_theta_est_pdtmvn_kernel,
+        update_theta_from_vectorized_theta_est_args = NULL
+    ),
+    list(
         vars_and_offsets = data.frame(var_name = "total_cases",
             offset_value = 1L,
             offset_type = "horizon",
@@ -50,8 +76,8 @@ kernel_components <- list(
             continuous_vars = "total_cases_horizon1",
             discrete_vars = NULL,
             discrete_var_range_fns = NULL,
-            lower = -Inf,
-            upper = Inf
+            lower = c(total_cases_horizon1 = -Inf),
+            upper = c(total_cases_horizon1 = Inf)
         ),
         theta_est = list("bw"),
         initialize_kernel_params_fn = initialize_params_pdtmvn_kernel,
@@ -75,6 +101,10 @@ kcde_control <- create_kcde_control(X_names = "time_index",
 
 #tmp_file <- tempfile()
 #Rprof(tmp_file, gc.profiling = TRUE, line.profiling = TRUE)
+
+## set up parallelization
+registerDoMC(cores=3)
+
 
 ## estimate parameters using only data up through 2014
 flu_kcde_fit_orig_scale <- kcde(data = ili_national[ili_national$year <= 2014, ],
@@ -103,4 +133,39 @@ ggplot() +
 	ylab("Predictive Density") +
 	ggtitle("Realized total cases vs. one week ahead predictive density\nWeek 1 of 2015") +
 	theme_bw()
+
+
+
+## obtain kernel weights and centers
+debug(kcde_kernel_centers_and_weights_predict_given_lagged_obs)
+predictive_kernel_weights_and_centers <- kcde_predict(kcde_fit = flu_kcde_fit_orig_scale,
+    prediction_data = ili_national[ili_national$year == 2014 & ili_national$week == 53, , drop = FALSE],
+    leading_rows_to_drop = 0,
+    trailing_rows_to_drop = 1L,
+    additional_training_rows_to_drop = NULL,
+    prediction_type = "centers-and-weights")
+
+
+
+
+ggplot() +
+    geom_point(aes(x = predictive_kernel_weights_and_centers$centers[, 1],
+        y = predictive_kernel_weights_and_centers$weights)) +
+    theme_bw()
+
+
+matching_predictive_value <- compute_offset_obs_vecs(data = flu_kcde_fit_orig_scale$train_data,
+    vars_and_offsets = flu_kcde_fit_orig_scale$vars_and_offsets,
+    time_name = flu_kcde_fit_orig_scale$kcde_control$time_name,
+    leading_rows_to_drop = 0,
+    trailing_rows_to_drop = 1L,
+    additional_rows_to_drop = NULL,
+    na.action = flu_kcde_fit_orig_scale$kcde_control$na.action)
+
+ggplot() +
+    geom_point(aes(y = predictive_kernel_weights_and_centers$centers[, 1],
+            x = matching_predictive_value$total_cases_lag0,
+            alpha = predictive_kernel_weights_and_centers$weights)) +
+    theme_bw()
+
 

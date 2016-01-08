@@ -84,17 +84,19 @@ pdtmvn_kernel <- function(x,
 		log,
         ...) {
     if(length(dim(center)) > 0) {
+        center_names <- colnames(center)
         center <- as.vector(as.matrix(center))
+        names(center) <- center_names
     }
-	return(pdtmvn::dpdtmvn(x = x,
-		mean = center,
+    return(pdtmvn::dpdtmvn(x = x,
+        mean = center,
 		sigma = bw,
 		sigma_continuous = bw_continuous,
 		conditional_sigma_discrete = conditional_bw_discrete,
 		conditional_mean_discrete_offset_multiplier = 
 			conditional_center_discrete_offset_multiplier,
-		lower = lower,
-		upper = upper,
+		lower = lower[names(center)],
+		upper = upper[names(center)],
 		continuous_vars = continuous_var_col_inds,
 		discrete_vars = discrete_var_col_inds,
 		discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
@@ -160,8 +162,8 @@ rpdtmvn_kernel <- function(n,
             x_fixed = conditioning_obs,
             mean = center,
             sigma = bw,
-            lower = lower,
-            upper = upper,
+            lower = lower[names(center)],
+            upper = upper[names(center)],
             continuous_vars = continuous_var_col_inds,
             discrete_vars = discrete_var_col_inds,
             discrete_var_range_fns = discrete_var_range_fns,
@@ -186,7 +188,7 @@ compute_pdtmvn_kernel_bw_params_from_bw_eigen <- function(bw_evecs,
     bw_evals,
     continuous_var_col_inds,
     discrete_var_col_inds) {
-    bw <- bw_evecs %*% diag(bw_evals) %*% t(bw_evecs)
+    bw <- bw_evecs %*% diag(bw_evals, nrow = length(bw_evals)) %*% t(bw_evecs)
     
     bw_params <- c(
 		list(bw = bw,

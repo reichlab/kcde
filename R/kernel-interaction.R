@@ -47,10 +47,19 @@ initialize_theta <- function(prev_theta,
                     fn_args$update_var_name <- update_var_name
                     fn_args$update_offset_value <- update_offset_value
                     fn_args$update_offset_type <- update_offset_type
-                    fn_args$prev_theta <- c(prev_theta[[ind]],
-                        kcde_control$kernel_components[[ind]]$theta_fixed)
                     fn_args$kcde_control <- kcde_control
                     fn_args$x <- data[, cols_used, drop=FALSE]
+                    
+                    ## the business with temp_prev_theta here is necessary
+                    ## because on the first call for a given kernel component,
+                    ## prev_theta may be NULL, but on later calls, prev_theta
+                    ## will have already been initialized with the values in
+                    ## theta_fixed
+                    temp_prev_theta <- prev_theta[[ind]]
+                    temp_prev_theta[
+                        names(kcde_control$kernel_components[[ind]]$theta_fixed)
+                    ] <- kcde_control$kernel_components[[ind]]$theta_fixed
+                    fn_args$prev_theta <- temp_prev_theta
                     
                     return(do.call(fn_name, fn_args))
                 } else {
@@ -83,14 +92,16 @@ extract_vectorized_theta_est_from_theta <- function(theta,
     
     for(ind in seq_along(kcde_control$kernel_components)) {
         ## parameters that are being estimated
-        theta_vector <- c(theta_vector, do.call(
-			kcde_control$kernel_components[[ind]]$vectorize_kernel_params_fn,
-       		c(list(theta_list = theta[[ind]],
-				vars_and_offsets = vars_and_offsets),
-       			kcde_control$kernel_components[[ind]]$vectorize_kernel_params_args)
-       	))
+        if(!is.null(theta[[ind]])) {
+            theta_vector <- c(theta_vector, do.call(
+                    kcde_control$kernel_components[[ind]]$vectorize_kernel_params_fn,
+                    c(list(theta_list = theta[[ind]],
+                            vars_and_offsets = vars_and_offsets),
+                        kcde_control$kernel_components[[ind]]$vectorize_kernel_params_args)
+                ))
+        }
     }
-
+    
     return(theta_vector)
 }
 
@@ -110,21 +121,23 @@ update_theta_from_vectorized_theta_est <- function(theta_est_vector,
     theta_vector_component_start_ind <- 1L
     for(ind in seq_along(kcde_control$kernel_components)) {
         ## parameters that are being estimated
-        temp <- do.call(
-			kcde_control$kernel_components[[ind]]$
-				update_theta_from_vectorized_theta_est_fn,
-        	c(list(theta_est_vector = theta_est_vector[
-					seq(from = theta_vector_component_start_ind,
-        				to = length(theta_est_vector))],
-        		theta = theta[[ind]]),
-        		kcde_control$kernel_components[[ind]]$
-					update_theta_from_vectorized_theta_est_args)
-        )
-        
-        theta_vector_component_start_ind <- theta_vector_component_start_ind +
-			temp$num_theta_vals_used
-        
-        theta[[ind]] <- temp$theta
+        if(!is.null(theta[[ind]])) {
+            temp <- do.call(
+                kcde_control$kernel_components[[ind]]$
+                    update_theta_from_vectorized_theta_est_fn,
+                c(list(theta_est_vector = theta_est_vector[
+                            seq(from = theta_vector_component_start_ind,
+                                to = length(theta_est_vector))],
+                        theta = theta[[ind]]),
+                    kcde_control$kernel_components[[ind]]$
+                        update_theta_from_vectorized_theta_est_args)
+            )
+            
+            theta_vector_component_start_ind <- theta_vector_component_start_ind +
+                temp$num_theta_vals_used
+            
+            theta[[ind]] <- temp$theta
+        }
     }
 
     return(theta)

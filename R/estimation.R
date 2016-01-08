@@ -38,6 +38,8 @@ kcde <- function(X_names,
     return(list(kcde_control=kcde_control,
 		vars_and_offsets=param_estimates$vars_and_offsets,
         theta_hat=param_estimates$theta_hat,
+        all_evaluated_models=param_estimates$all_evaluated_models,
+        all_evaluated_model_descriptors=param_estimates$all_evaluated_model_descriptors,
         train_data=data))
 }
 
@@ -98,11 +100,11 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
         ## corresponding parameter estimates
         
         ## commented out use of foreach for debugging purposes
-#        crossval_results <- foreach(i=seq_len(nrow(predictive_vars_and_offsets)),
-#            .packages=c("kcde", kcde_control$par_packages),
-#            .combine="c") %dopar% {
-        crossval_results <- lapply(seq_len(nrow(predictive_vars_and_offsets)),
-			function(i) {
+        crossval_results <- foreach(i=seq_len(nrow(predictive_vars_and_offsets)),
+            .packages=c("kcde", kcde_control$par_packages),
+            .combine="c") %dopar% {
+#        crossval_results <- lapply(seq_len(nrow(predictive_vars_and_offsets)),
+#			function(i) {
 	        	descriptor_updated_model <- update_vars_and_offsets(
                     prev_vars_and_offsets = current_model_vars_and_offsets,
 					update_var_name = predictive_vars_and_offsets[i, "var_name"],
@@ -127,13 +129,13 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
                             all_na_drop_rows = all_na_drop_rows,
 	                        kcde_control=kcde_control)
                     
-	                return(potential_step_result)
-#	               return(list(potential_step_result)) # put results in a list so that combine="c" is useful
+#	                return(potential_step_result)
+	               return(list(potential_step_result)) # put results in a list so that combine="c" is useful
 	            } else {
 	            	return(NULL) # represents a model that has been previously evaluated or doesn't include any predictive variables
 	            }
 	        }
-		)
+#		)
         
         ## drop elements corresponding to previously explored models or models without any predictive variables
         non_null_components <- sapply(crossval_results,
@@ -179,7 +181,9 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
     }
 
     return(list(vars_and_offsets=current_model_vars_and_offsets,
-        theta_hat=theta_hat))
+        theta_hat=theta_hat,
+        all_evaluated_models=all_evaluated_models,
+        all_evaluated_model_descriptors=all_evaluated_model_descriptors))
 }
 
 
