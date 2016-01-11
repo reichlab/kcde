@@ -38,7 +38,7 @@ initialize_theta <- function(prev_theta,
                 potential_cols_in_component <-
                     kcde_control$kernel_components[[ind]]$vars_and_offsets$combined_name
                 cols_used <- colnames(data) %in% potential_cols_in_component
-                if(length(cols_used) > 0) {
+                if(any(cols_used)) {
                     fn_name <- kcde_control$kernel_components[[ind]]$
                         initialize_kernel_params_fn
                     
