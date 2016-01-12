@@ -258,7 +258,7 @@ simulate_values_from_product_kernel <- function(n,
             ## call kernel function and store results
             simulated_values[, center_col_names] <-
                 do.call(kernel_components[[ind]]$rkernel_fn,
-                    rkernel_args)
+                    rkernel_args)[, center_col_names]
         }
     }
     
