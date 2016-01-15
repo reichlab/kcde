@@ -84,28 +84,12 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
     ## (i.e., changing the filter parameters from their initial values could not generate more
     ## NAs.
     if(identical(kcde_control$na.action, "na.omit")) {
-        phi_init <- initialize_phi(prev_phi = phi_hat,
-            updated_vars_and_offsets = all_vars_and_offsets,
-            update_var_name = all_vars_and_offsets$var_name,
-            update_offset_value = all_vars_and_offsets$offset_value,
-            update_offset_type = all_vars_and_offsets$offset_type,
+        all_na_drop_rows <- compute_na_rows_after_filter_and_offset(
             data = data,
-            kcde_control = kcde_control)
-        
-        filtered_and_lagged_data <- compute_offset_obs_vecs(data = data,
-            filter_control = kcde_control$filter_control,
-            phi = phi_init,
+            phi = phi_hat,
             vars_and_offsets = all_vars_and_offsets,
-            time_name = kcde_control$time_name,
-            leading_rows_to_drop = 0L,
-            trailing_rows_to_drop = 0L,
-            additional_rows_to_drop = NULL,
-            na.action = "na.pass")
-        
-        all_na_drop_rows <- which(apply(
-            filtered_and_lagged_data[all_vars_and_offsets$combined_name],
-            1,
-            anyNA))
+            kcde_control = kcde_control
+        )
     } else {
         stop("Unsupported na.action")
     }

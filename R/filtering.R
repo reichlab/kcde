@@ -178,8 +178,9 @@ compute_filter_values <- function(data,
     return(cbind(data, as.data.frame(filtered_data)))
 }
 
-#' Forward and reverse pass filter to correct phase shift introduced by one-pass filter.
-#' Closely based on signal::filtfilt -- see the documentation there for further discussion.
+#' Forward and reverse pass filter to correct phase shift introduced by one-pass
+#' filter.  Uses stats::filter to do each filtering pass.  Closely based on
+#' signal::filtfilt -- see the documentation there for further discussion.
 #' Two main differences with the implementation in signal::filtfilt:
 #'   (1) We pad the end of the time series with the last observed value instead
 #'       of zeros.  Based on very informal plotting, this seems to give better
@@ -198,9 +199,115 @@ compute_filter_values <- function(data,
 #' @param sides sides for a call to stats::filter -- see the documentation at stats::filter
 #' @param circular circular for a call to stats::filter -- see the documentation at stats::filter
 #' 
-two_pass_filter <- function(filter, x, method, sides, circular) {
+two_pass_stats_filter <- function(filter, x, method, sides, circular) {
 #    y <- stats::filter(filter = filter, x = c(x, numeric(2 * length(filter))), method = method, sides = sides, circular = circular)
     y <- stats::filter(filter = filter, x = c(x, rep(x[length(x)], 2 * length(filter))), method = method, sides = sides, circular = circular)
     y <- rev(stats::filter(filter = filter, x = rev(y), method = method, sides = sides, circular = circular))[seq_along(x)]
     return(y)
+}
+
+
+
+#' Forward and reverse pass filter to correct phase shift introduced by one-pass
+#' filter.  Uses signal::filter to do each filtering pass.  Closely based on
+#' signal::filtfilt -- see the documentation there for further discussion.  Two
+#' main differences with that implementation:
+#'   1) We impute internal missing values for the purposes of filtering, then
+#'      replace them with NAs again after filtering
+#'   2) We pad the end of the time series with the last observed value instead
+#'      of zeros.  Based on very informal plotting, this seems to give better
+#'      values at the end of the time series, which will be important for
+#'      prediction
+#' 
+#' @param filter vector of filter coefficients for a FIR filter
+#' @param x vector of data to be filtered
+#' @param method method for a call to stats::filter -- see the documentation at stats::filter
+#' @param sides sides for a call to stats::filter -- see the documentation at stats::filter
+#' @param circular circular for a call to stats::filter -- see the documentation at stats::filter
+#' 
+two_pass_signal_filter <- function(filt, x, impute_fn) {
+    ## Pad end with last observed value
+    filt_Arma <- signal::as.Arma(filt)
+    x_padded <- c(x,
+        rep(x[length(x)],
+            2 * max(length(filt_Arma$a), length(filt_Arma$b))
+        )
+    )
+    
+    ## Impute_fn should return a matrix with nrow = length(x_padded)
+    ## and one column per imputation (for multiple imputation)
+    x_imputed <- impute_fn(x_padded)
+    
+    ## Do two pass filtering on each colum of x_imputed
+    y <- matrix(NA, nrow = nrow(x_imputed), ncol = ncol(x_imputed))
+    for(j in seq_len(ncol(y))) {
+        y[, j] <- signal::filter(filt = filt, x = x_imputed[, j])
+        y[, j] <- rev(signal::filter(filt = filt, x = rev(y[, j])))
+    }
+    
+    ## Take average of filtered values obtained with each imputed series
+    ## Also, drop padded values at end
+    y <- apply(y, 1, mean)[seq_along(x)]
+    
+    ## Re-insert NA values that were filled by imputation
+    y[is.na(x)] <- NA
+    
+    ## Return
+    return(y)
+}
+
+
+#' One-pass filter using signal::filter, with two additions:
+#'   1) We impute internal missing values for the purposes of filtering, then
+#'      replace them with NAs again after filtering
+#'   2) We pad the end of the time series with the last observed value instead
+#'      of zeros.  Based on very informal plotting, this seems to give better
+#'      values at the end of the time series, which will be important for
+#'      prediction
+#' 
+#' @param filter vector of filter coefficients for a FIR filter
+#' @param x vector of data to be filtered
+#' @param method method for a call to stats::filter -- see the documentation at stats::filter
+#' @param sides sides for a call to stats::filter -- see the documentation at stats::filter
+#' @param circular circular for a call to stats::filter -- see the documentation at stats::filter
+#' 
+one_pass_signal_filter <- function(filt, x, impute_fn) {
+    ## Pad end with last observed value
+    filt_Arma <- signal::as.Arma(filt)
+    x_padded <- c(x,
+        rep(x[length(x)],
+            2 * max(length(filt_Arma$a), length(filt_Arma$b))
+        )
+    )
+    
+    ## Impute_fn should return a matrix with nrow = length(x_padded)
+    ## and one column per imputation (for multiple imputation)
+    x_imputed <- impute_fn(x_padded)
+    
+    ## Do two pass filtering on each colum of x_imputed
+    y <- matrix(NA, nrow = nrow(x_imputed), ncol = ncol(x_imputed))
+    for(j in seq_len(ncol(y))) {
+        y[, j] <- signal::filter(filt = filt, x = x_imputed[, j])
+    }
+    
+    ## Take average of filtered values obtained with each imputed series
+    ## Also, drop padded values at end
+    y <- apply(y, 1, mean)[seq_along(x)]
+    
+    ## Re-insert NA values that were filled by imputation
+    y[is.na(x)] <- NA
+    
+    ## Return
+    return(y)
+}
+
+
+#' Fill interior NAs in x by linear interpolation
+#' 
+#' @param x a numeric vector of values to fill by linear interpolation
+#' 
+#' @return a matrix with nrow = length(x) and one column, with interior NAs in x
+#'   replaced by linearly interpolated values
+interior_linear_interpolation <- function(x) {
+    return(matrix(approx(seq_along(x), x, seq_along(x))$y))
 }

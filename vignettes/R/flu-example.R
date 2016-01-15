@@ -372,24 +372,48 @@ kernel_components <- list(
         update_theta_from_vectorized_theta_est_args = NULL
     ))
 
+#filter_control <- list(
+#    list(
+#        var_name = "total_cases",
+#        max_filter_window_size = 13,
+##        filter_fn = stats::filter, # signal::filter throws error on internal NAs
+#        filter_fn = two_pass_filter,
+#        fixed_filter_params = list(
+#            n = 12,
+#            ftype = "bandpass",
+#            density = 16
+#        ),
+#        filter_args_fn = compute_filter_args_pm_opt_filter,
+#        filter_args_args = NULL,
+#        initialize_filter_params_fn = initialize_filter_params_pm_opt_filter,
+#        initialize_filter_params_args = NULL,
+#        vectorize_filter_params_fn = vectorize_filter_params_pm_opt_filter,
+#        vectorize_filter_params_args = NULL,
+#        update_filter_params_from_vectorized_fn = update_filter_params_from_vectorized_pm_opt_filter,
+#        update_filter_params_from_vectorized_args = NULL
+#    )
+#)
+
+
+
+
 filter_control <- list(
     list(
         var_name = "total_cases",
         max_filter_window_size = 13,
-#        filter_fn = stats::filter, # signal::filter throws error on internal NAs
-        filter_fn = two_pass_filter,
+        filter_fn = two_pass_signal_filter,
         fixed_filter_params = list(
             n = 12,
-            ftype = "bandpass",
-            density = 16
+            type = "pass",
+            impute_fn = interior_linear_interpolation
         ),
-        filter_args_fn = compute_filter_args_pm_opt_filter,
+        filter_args_fn = compute_filter_args_butterworth_filter,
         filter_args_args = NULL,
-        initialize_filter_params_fn = initialize_filter_params_pm_opt_filter,
+        initialize_filter_params_fn = initialize_filter_params_butterworth_filter,
         initialize_filter_params_args = NULL,
-        vectorize_filter_params_fn = vectorize_filter_params_pm_opt_filter,
+        vectorize_filter_params_fn = vectorize_filter_params_butterworth_filter,
         vectorize_filter_params_args = NULL,
-        update_filter_params_from_vectorized_fn = update_filter_params_from_vectorized_pm_opt_filter,
+        update_filter_params_from_vectorized_fn = update_filter_params_from_vectorized_butterworth_filter,
         update_filter_params_from_vectorized_args = NULL
     )
 )
@@ -426,10 +450,11 @@ flu_kcde_fit_orig_scale <- kcde(data = ili_national[ili_national$year <= 2014, ]
 
 
 ## sample from predictive distribution for first week in 2015
+analysis_time_ind <- which(ili_national$year == 2014 & ili_national$week == 53)
 predictive_sample <- kcde_predict(kcde_fit = flu_kcde_fit_orig_scale,
-    prediction_data = ili_national[ili_national$year == 2014 & ili_national$week %in% c(52, 53), , drop = FALSE],
-    leading_rows_to_drop = 1L,
-    trailing_rows_to_drop = 1L,
+    prediction_data = ili_national[seq_len(analysis_time_ind), , drop = FALSE],
+    leading_rows_to_drop = 0L,
+    trailing_rows_to_drop = 0L,
     additional_training_rows_to_drop = NULL,
     prediction_type = "sample",
     n = 10000L)
@@ -447,7 +472,7 @@ ggplot() +
 
 ## obtain kernel weights and centers
 predictive_kernel_weights_and_centers <- kcde_predict(kcde_fit = flu_kcde_fit_orig_scale,
-    prediction_data = ili_national[ili_national$year == 2014 & ili_national$week %in% c(52, 53), , drop = FALSE],
+    prediction_data = ili_national[seq_len(analysis_time_ind), , drop = FALSE],
     leading_rows_to_drop = 1L,
     trailing_rows_to_drop = 1L,
     additional_training_rows_to_drop = NULL,
@@ -463,16 +488,80 @@ ggplot() +
 
 
 matching_predictive_value <- compute_offset_obs_vecs(data = flu_kcde_fit_orig_scale$train_data,
+    filter_control = flu_kcde_fit_orig_scale$kcde_control$filter_control,
+    phi = flu_kcde_fit_orig_scale$phi_hat,
     vars_and_offsets = flu_kcde_fit_orig_scale$vars_and_offsets,
     time_name = flu_kcde_fit_orig_scale$kcde_control$time_name,
-    leading_rows_to_drop = 1L,
-    trailing_rows_to_drop = 1L,
+    leading_rows_to_drop = 0L,
+    trailing_rows_to_drop = 0L,
+    additional_rows_to_drop = NULL,
+    na.action = flu_kcde_fit_orig_scale$kcde_control$na.action)
+
+
+
+ggplot() +
+    geom_point(aes(y = predictive_kernel_weights_and_centers$centers[, 1],
+            x = matching_predictive_value$filtered_total_cases_lag0,
+            alpha = predictive_kernel_weights_and_centers$weights)) +
+    theme_bw()
+
+
+analysis_time_filtered_and_offset_data <- compute_offset_obs_vecs(
+    data = ili_national[seq_len(analysis_time_ind), , drop = FALSE],
+    filter_control = flu_kcde_fit_orig_scale$kcde_control$filter_control,
+    phi = flu_kcde_fit_orig_scale$phi_hat,
+    vars_and_offsets = flu_kcde_fit_orig_scale$vars_and_offsets[flu_kcde_fit_orig_scale$vars_and_offsets$offset_type == "lag", , drop = FALSE],
+    time_name = flu_kcde_fit_orig_scale$kcde_control$time_name,
+    leading_rows_to_drop = 0L,
+    trailing_rows_to_drop = 0L,
+    additional_rows_to_drop = NULL,
+    na.action = flu_kcde_fit_orig_scale$kcde_control$na.action)
+analysis_time_filtered_and_offset_data <-
+    analysis_time_filtered_and_offset_data[nrow(analysis_time_filtered_and_offset_data), , drop = FALSE]
+
+ggplot() +
+    geom_path(aes(y = matching_predictive_value$filtered_total_cases_lag0,
+            x = matching_predictive_value$filtered_total_cases_lag1),
+        colour = "grey") +
+    geom_point(aes(y = matching_predictive_value$filtered_total_cases_lag0,
+            x = matching_predictive_value$filtered_total_cases_lag1,
+            alpha = predictive_kernel_weights_and_centers$weights)) +
+    geom_point(aes(y = analysis_time_filtered_and_offset_data$filtered_total_cases_lag0,
+            x = analysis_time_filtered_and_offset_data$filtered_total_cases_lag1),
+        colour = "red") +
+    theme_bw()
+
+
+ggplot() +
+    geom_line(aes(x = time, y = total_cases),
+        data = flu_kcde_fit_orig_scale$train_data) +
+    geom_line(aes(x = time, y = filtered_total_cases_lag0),
+        colour = "red",
+        data = matching_predictive_value) +
+    theme_bw()
+
+
+one_pass_filter_control <- flu_kcde_fit_orig_scale$kcde_control$filter_control
+one_pass_filter_control[[1]]$filter_n <- one_pass_signal_filter
+
+one_pass_matching_predictive_value <- compute_offset_obs_vecs(data = flu_kcde_fit_orig_scale$train_data,
+    filter_control = one_pass_filter_control,
+    phi = flu_kcde_fit_orig_scale$phi_hat,
+    vars_and_offsets = flu_kcde_fit_orig_scale$vars_and_offsets,
+    time_name = flu_kcde_fit_orig_scale$kcde_control$time_name,
+    leading_rows_to_drop = 0L,
+    trailing_rows_to_drop = 0L,
     additional_rows_to_drop = NULL,
     na.action = flu_kcde_fit_orig_scale$kcde_control$na.action)
 
 ggplot() +
-    geom_point(aes(y = predictive_kernel_weights_and_centers$centers[, 1],
-            x = matching_predictive_value$total_cases_lag0,
-            alpha = predictive_kernel_weights_and_centers$weights)) +
+    geom_line(aes(x = time, y = total_cases),
+        data = flu_kcde_fit_orig_scale$train_data) +
+    geom_line(aes(x = time, y = filtered_total_cases_lag0),
+        colour = "red",
+        data = matching_predictive_value) +
+    geom_line(aes(x = time, y = filtered_total_cases_lag0),
+        colour = "blue",
+        data = one_pass_matching_predictive_value) +
     theme_bw()
 

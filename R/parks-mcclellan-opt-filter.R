@@ -1,4 +1,7 @@
-## Auxiliary functions for use with signal::remez, the Parks-McClellan optimal FIR filter
+## Auxiliary functions for use with signal::remez, the Parks-McClellan optimal
+## FIR filter.  This method is not useful for this package; the C implementation
+## of the method in the signal package has some issues that we run into when
+## attempting to use numerical methods to optimize band parameters.
 
 #' Initialize parameters of the pm_opt_filter on evaluation scale.
 #' In principle, we could/should do something data based here?  Instead, I just made up

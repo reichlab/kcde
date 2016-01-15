@@ -30,20 +30,35 @@ kcde_predict <- function(kcde_fit,
     ## create data frame of "examples" -- lagged observation vectors and
     ## corresponding prediction targets
     training_examples <- compute_offset_obs_vecs(data = kcde_fit$train_data,
+        filter_control = kcde_fit$kcde_control$filter_control,
+        phi = kcde_fit$phi_hat,
         vars_and_offsets = kcde_fit$vars_and_offsets,
-        time_name = kcde_control$time_name,
+        time_name = kcde_fit$kcde_control$time_name,
         leading_rows_to_drop = leading_rows_to_drop,
         trailing_rows_to_drop = trailing_rows_to_drop,
         additional_rows_to_drop = NULL,
-        na.action = kcde_control$na.action)
+        na.action = kcde_fit$kcde_control$na.action)
+    
+    ## Keep only non-NA rows in training data
+    training_non_na_rows <- which(!apply(
+            training_examples[kcde_fit$vars_and_offsets$combined_name],
+            1,
+            anyNA))
+    
+    training_examples <- training_examples[training_non_na_rows, , drop = FALSE]
     
     prediction_examples <- compute_offset_obs_vecs(data = prediction_data,
+        filter_control = kcde_fit$kcde_control$filter_control,
+        phi = kcde_fit$phi_hat,
         vars_and_offsets = kcde_fit$vars_and_offsets[kcde_fit$vars_and_offsets$offset_type == "lag", , drop = FALSE],
-        time_name = kcde_control$time_name,
-        leading_rows_to_drop = leading_rows_to_drop,
-        trailing_rows_to_drop = 0,
+        time_name = kcde_fit$kcde_control$time_name,
+        leading_rows_to_drop = 0L,
+        trailing_rows_to_drop = 0L,
         additional_rows_to_drop = NULL,
-        na.action = kcde_control$na.action)
+        na.action = kcde_fit$kcde_control$na.action)
+    
+    ## Keep only last row in prediction data
+    prediction_examples <- prediction_examples[nrow(prediction_examples), , drop = FALSE]
     
     predictive_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[kcde_fit$vars_and_offsets$offset_type == "lag"]
     target_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[kcde_fit$vars_and_offsets$offset_type == "horizon"]

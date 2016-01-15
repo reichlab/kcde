@@ -188,7 +188,43 @@ compute_offset_obs_vecs <- function(data,
     return(result)
 }
 
-
+#' Compute rows of the data frame that contain NA values after performing the filtering and
+#' observation offset steps.
+#' 
+#' @param data data frame of observations to filter and offset
+#' @param phi list of parameters for filtering
+#' @param vars_and_offsets data frame describing variables to offset and size
+#'   and direction of offset
+#' @param kcde_control list of control parameters for kcde
+#' 
+#' @return integer vector with rows of data that contain na values after
+#'   filtering and offsetting observations
+compute_na_rows_after_filter_and_offset <- function(data, phi, vars_and_offsets, kcde_control) {
+    phi_init <- initialize_phi(prev_phi = phi,
+        updated_vars_and_offsets = vars_and_offsets,
+        update_var_name = vars_and_offsets$var_name,
+        update_offset_value = vars_and_offsets$offset_value,
+        update_offset_type = vars_and_offsets$offset_type,
+        data = data,
+        kcde_control = kcde_control)
+    
+    filtered_and_lagged_data <- compute_offset_obs_vecs(data = data,
+        filter_control = kcde_control$filter_control,
+        phi = phi,
+        vars_and_offsets = vars_and_offsets,
+        time_name = kcde_control$time_name,
+        leading_rows_to_drop = 0L,
+        trailing_rows_to_drop = 0L,
+        additional_rows_to_drop = NULL,
+        na.action = "na.pass")
+    
+    all_na_drop_rows <- which(apply(
+            filtered_and_lagged_data[vars_and_offsets$combined_name],
+            1,
+            anyNA))
+    
+    return(all_na_drop_rows)
+}
 
 
 ### loss functions
