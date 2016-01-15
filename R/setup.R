@@ -54,6 +54,7 @@ create_kcde_control <- function(X_names,
         time_name,
         prediction_horizons,
         kernel_components,
+        filter_control,
         crossval_buffer,
         loss_fn,
         loss_fn_prediction_type,
@@ -69,6 +70,7 @@ create_kcde_control <- function(X_names,
     kcde_control$prediction_horizons <- prediction_horizons
     
     kcde_control$kernel_components <- kernel_components
+    kcde_control$filter_control <- filter_control
     
     kcde_control$crossval_buffer <- crossval_buffer
     

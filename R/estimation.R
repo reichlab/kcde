@@ -38,6 +38,7 @@ kcde <- function(X_names,
     return(list(kcde_control=kcde_control,
 		vars_and_offsets=param_estimates$vars_and_offsets,
         theta_hat=param_estimates$theta_hat,
+        phi_hat=param_estimates$phi_hat,
         all_evaluated_models=param_estimates$all_evaluated_models,
         all_evaluated_model_descriptors=param_estimates$all_evaluated_model_descriptors,
         train_data=data))
@@ -69,6 +70,7 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
     current_model_vars_and_offsets <- all_vars_and_offsets[
         all_vars_and_offsets$offset_type == "horizon", , drop = FALSE]
     theta_hat <- vector("list", length(kcde_control$kernel_components))
+    phi_hat <- vector("list", length(kcde_control$filter_control))
     
     all_evaluated_models <- list()
     all_evaluated_model_descriptors <- list()
@@ -76,19 +78,34 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
     ## If na.action is "na.omit", we want to ensure that the same rows are dropped from all models
     ## so that we can make a reasonable comparison between models.  Here, we calculate which rows
     ## to drop based on all NA's in all variables and all lags and prediction horizons for those
-    ## variables that are in the all_vars_and_offsets object
+    ## variables that are in the all_vars_and_offsets object.
+    ## 
+    ## In this process, we assume that the initial filter parameters generate all possible NAs
+    ## (i.e., changing the filter parameters from their initial values could not generate more
+    ## NAs.
     if(identical(kcde_control$na.action, "na.omit")) {
-        all_na_drop_rows <- rep(FALSE, nrow(data))
-        for(var_offset_ind in seq_len(nrow(all_vars_and_offsets))) {
-            if(identical(all_vars_and_offsets$offset_type[var_offset_ind], "lag")) {
-                temp <- lag(data[, all_vars_and_offsets$var_name[var_offset_ind]],
-                    all_vars_and_offsets$offset_value[var_offset_ind])
-            } else {
-                temp <- lead(data[, all_vars_and_offsets$var_name[var_offset_ind]],
-                    all_vars_and_offsets$offset_value[var_offset_ind])
-            }
-            all_na_drop_rows[is.na(temp)] <- TRUE
-        }
+        phi_init <- initialize_phi(prev_phi = phi_hat,
+            updated_vars_and_offsets = all_vars_and_offsets,
+            update_var_name = all_vars_and_offsets$var_name,
+            update_offset_value = all_vars_and_offsets$offset_value,
+            update_offset_type = all_vars_and_offsets$offset_type,
+            data = data,
+            kcde_control = kcde_control)
+        
+        filtered_and_lagged_data <- compute_offset_obs_vecs(data = data,
+            filter_control = kcde_control$filter_control,
+            phi = phi_init,
+            vars_and_offsets = all_vars_and_offsets,
+            time_name = kcde_control$time_name,
+            leading_rows_to_drop = 0L,
+            trailing_rows_to_drop = 0L,
+            additional_rows_to_drop = NULL,
+            na.action = "na.pass")
+        
+        all_na_drop_rows <- which(apply(
+            filtered_and_lagged_data[all_vars_and_offsets$combined_name],
+            1,
+            anyNA))
     } else {
         stop("Unsupported na.action")
     }
@@ -100,11 +117,11 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
         ## corresponding parameter estimates
         
         ## commented out use of foreach for debugging purposes
-        crossval_results <- foreach(i=seq_len(nrow(predictive_vars_and_offsets)),
-            .packages=c("kcde", kcde_control$par_packages),
-            .combine="c") %dopar% {
-#        crossval_results <- lapply(seq_len(nrow(predictive_vars_and_offsets)),
-#			function(i) {
+#        crossval_results <- foreach(i=seq_len(nrow(predictive_vars_and_offsets)),
+#            .packages=c("kcde", kcde_control$par_packages),
+#            .combine="c") %dopar% {
+        crossval_results <- lapply(seq_len(nrow(predictive_vars_and_offsets)),
+			function(i) {
 	        	descriptor_updated_model <- update_vars_and_offsets(
                     prev_vars_and_offsets = current_model_vars_and_offsets,
 					update_var_name = predictive_vars_and_offsets[i, "var_name"],
@@ -123,19 +140,20 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
 	                    est_kcde_params_stepwise_crossval_one_potential_step(
 	                        prev_vars_and_offsets=current_model_vars_and_offsets,
 	                        prev_theta=theta_hat,
+                            prev_phi=phi_hat,
 	                        update_var_name=predictive_vars_and_offsets[i, "var_name"],
                             update_lag_value=predictive_vars_and_offsets[i, "offset_value"],
                             data=data,
                             all_na_drop_rows = all_na_drop_rows,
 	                        kcde_control=kcde_control)
                     
-#	                return(potential_step_result)
-	               return(list(potential_step_result)) # put results in a list so that combine="c" is useful
+	                return(potential_step_result)
+#	               return(list(potential_step_result)) # put results in a list so that combine="c" is useful
 	            } else {
 	            	return(NULL) # represents a model that has been previously evaluated or doesn't include any predictive variables
 	            }
 	        }
-#		)
+		)
         
         ## drop elements corresponding to previously explored models or models without any predictive variables
         non_null_components <- sapply(crossval_results,
@@ -174,6 +192,7 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
 			current_model_vars_and_offsets <-
 				crossval_results[[selected_var_lag_ind]]$vars_and_offsets
             theta_hat <- crossval_results[[selected_var_lag_ind]]$theta
+            phi_hat <- crossval_results[[selected_var_lag_ind]]$phi
         } else {
             ## could not find a model improvement -- stop search
             break
@@ -182,6 +201,7 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
 
     return(list(vars_and_offsets=current_model_vars_and_offsets,
         theta_hat=theta_hat,
+        phi_hat=phi_hat,
         all_evaluated_models=all_evaluated_models,
         all_evaluated_model_descriptors=all_evaluated_model_descriptors))
 }
@@ -212,6 +232,7 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
 est_kcde_params_stepwise_crossval_one_potential_step <- function(
 		prev_vars_and_offsets,
     	prev_theta,
+        prev_phi,
     	update_var_name,
     	update_lag_value,
     	data,
@@ -224,8 +245,30 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
 		update_offset_value = update_lag_value,
         update_offset_type = "lag")
     
+    ## Initialize filtering parameters phi
+    phi_init <- initialize_phi(prev_phi = prev_phi,
+        updated_vars_and_offsets = updated_vars_and_offsets,
+        update_var_name = update_var_name,
+        update_offset_value = update_lag_value,
+        update_offset_type = "lag",
+        data = data,
+        kcde_control = kcde_control)
+    
+    phi_est_init <- extract_vectorized_phi_est_from_phi(phi = phi_init,
+        filter_control = kcde_control$filter_control)
+    
     ## create data frame of "examples" -- lagged observation vectors and
     ## corresponding prediction targets
+    max_filter_window_size <- suppressWarnings(max(unlist(lapply(
+                    kcde_control$filter_control,
+                    function(filter_var_component) {
+                        filter_var_component$max_filter_window_size
+                    }
+                ))))
+    if(max_filter_window_size == -Inf) {
+        max_filter_window_size <- 0L
+    }
+    
     max_lag <- max(unlist(lapply(kcde_control$kernel_components,
                 function(kernel_component) {
                     kernel_component$vars_and_offsets$offset_value[
@@ -233,6 +276,7 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
                     ]
                 }
             )))
+    
     max_horizon <- max(unlist(lapply(kcde_control$kernel_components,
                 function(kernel_component) {
                     kernel_component$vars_and_offsets$offset_value[
@@ -242,18 +286,16 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
             )))
     
     cross_validation_examples <- compute_offset_obs_vecs(data = data,
+        filter_control = kcde_control$filter_control,
+        phi = phi_init,
         vars_and_offsets = updated_vars_and_offsets,
         time_name = kcde_control$time_name,
-        leading_rows_to_drop = max_lag,
+        leading_rows_to_drop = max_filter_window_size + max_lag,
         trailing_rows_to_drop = max_horizon,
         additional_rows_to_drop = all_na_drop_rows,
         na.action = kcde_control$na.action)
     
-    ## initial values for theta; a list with two components:
-    ##     theta_est, vector of initial values in vector form on scale appropriate for
-    ##         estimation.
-    ##     theta_fixed, list of values that will not be estimated, one component
-    ##         for each component kernel function
+    ## initial values for theta
     if(identical(prev_theta, vector("list", length(kcde_control$kernel_components)))) {
         theta_init <- initialize_theta(prev_theta = prev_theta,
             updated_vars_and_offsets = updated_vars_and_offsets,
@@ -277,13 +319,17 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
         kcde_control = kcde_control)
     
     ## optimize parameter values
-    optim_result <- optim(par=theta_est_init,
+    optim_result <- optim(par=c(phi_est_init, theta_est_init),
         fn=kcde_crossval_estimate_parameter_loss,
 #        gr = gradient_kcde_crossval_estimate_parameter_loss,
 		gr=NULL,
+        phi=phi_init,
 		theta=theta_init,
         vars_and_offsets=updated_vars_and_offsets,
-        cross_validation_examples=cross_validation_examples,
+        data=data,
+        leading_rows_to_drop=max_filter_window_size + max_lag,
+        trailing_rows_to_drop=max_horizon,
+        additional_rows_to_drop = all_na_drop_rows,
         kcde_control=kcde_control,
         method="L-BFGS-B",
         lower=-50,
@@ -294,13 +340,24 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
 #    print(optim_result)
     
     ## convert back to list and original parameter scale
-    updated_theta <- update_theta_from_vectorized_theta_est(optim_result$par,
+    temp <- update_phi_from_vectorized_phi_est(phi_est_vector = optim_result$par,
+        phi = phi_init,
+        filter_control = kcde_control$filter_control)
+    
+    updated_phi <- temp$phi
+    ## index of the first element of optim_result$par that corresponds to a theta parameter
+    next_param_ind <- temp$next_param_ind
+    
+    updated_theta <- update_theta_from_vectorized_theta_est(
+        optim_result$par[seq(from = next_param_ind,
+                length = length(optim_result$par) - next_param_ind + 1)],
         theta_init,
         kcde_control)
     
     return(list(
         loss=optim_result$value,
         vars_and_offsets=updated_vars_and_offsets,
+        phi=updated_phi,
         theta=updated_theta
     ))
 }
@@ -308,8 +365,8 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
 #' Using cross-validation, estimate the loss associated with a particular set
 #' of lags and kernel function parameters.
 #' 
-#' @param theta_est_vector vector of kernel function parameters that are being
-#'     estimated
+#' @param combined_params_vector vector of parameters for filtering and kernel
+#'     functions that are being estimated
 #' @param theta list of kernel function parameters, both those that are being
 #'     estimated and those that are out of date.  Possibly the values of
 #'     parameters being estimated are out of date; they will be replaced with
@@ -321,17 +378,42 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
 #' 
 #' @return numeric -- cross-validation estimate of loss associated with the
 #'     specified parameters
-kcde_crossval_estimate_parameter_loss <- function(theta_est_vector,
+kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
+        phi,
 		theta,
 		vars_and_offsets,
-    	cross_validation_examples,
+    	data,
+        leading_rows_to_drop,
+        trailing_rows_to_drop,
+        additional_rows_to_drop,
     	kcde_control) {
-    ## set up theta list containing both the kernel parameters that are being
-    ## estimated and the kernel parameters that are being held fixed
-    ## also, transform back to list and original parameter scale
-    theta <- update_theta_from_vectorized_theta_est(theta_est_vector,
+    ## update phi and theta with elements of combined_params_vector and
+    ## transform back to list and original parameter scale
+    temp <- update_phi_from_vectorized_phi_est(combined_params_vector,
+        phi,
+        kcde_control$filter_control)
+    
+    phi <- temp$phi
+    ## index of the first element of combined_params_vector that corresponds
+    ## to a theta parameter
+    next_param_ind <- temp$next_param_ind
+    
+    theta <- update_theta_from_vectorized_theta_est(
+        combined_params_vector[seq(from = next_param_ind,
+                length = length(combined_params_vector) - next_param_ind + 1)],
         theta,
         kcde_control)
+    
+    ## Create data frame of filtered and lagged cross validation examples
+    cross_validation_examples <- compute_offset_obs_vecs(data = data,
+        filter_control = kcde_control$filter_control,
+        phi = phi,
+        vars_and_offsets = vars_and_offsets,
+        time_name = kcde_control$time_name,
+        leading_rows_to_drop = leading_rows_to_drop,
+        trailing_rows_to_drop = trailing_rows_to_drop,
+        additional_rows_to_drop = additional_rows_to_drop,
+        na.action = kcde_control$na.action)
     
     predictive_var_combined_names <- vars_and_offsets$combined_name[vars_and_offsets$offset_type == "lag"]
     target_var_combined_names <- vars_and_offsets$combined_name[vars_and_offsets$offset_type == "horizon"]

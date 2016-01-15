@@ -94,6 +94,8 @@ compute_normalized_log_weights <- function(log_weights) {
 #' @param rows_to_drop an integer vector specifying rows to drop after computing
 #'     lagged observation vectors.
 compute_offset_obs_vecs <- function(data,
+        filter_control,
+        phi,
 		vars_and_offsets,
         time_name,
         leading_rows_to_drop = 0,
@@ -106,20 +108,23 @@ compute_offset_obs_vecs <- function(data,
         stop("leading_rows_to_drop, trailing_rows_to_drop, and additional_rows_to_drop must be integers between 0 and nrow(data)")
     }
     
-    max_lag <- suppressWarnings(max(vars_and_offsets$offset_value[vars_and_offsets$offset_type == "lag"]))
-    if(max_lag > -Inf && leading_rows_to_drop < max_lag) {
-        stop("leading_rows_to_drop must be at least as large as the largest lag in vars_and_offsets")
-    }
-    
-    max_horizon <- suppressWarnings(max(vars_and_offsets$offset_value[vars_and_offsets$offset_type == "horizon"]))
-    if(max_horizon > -Inf && trailing_rows_to_drop < max_horizon) {
-        stop("trailing_rows_to_drop must be at least as large as the largest horizon in vars_and_offsets")
-    }
+#    max_lag <- suppressWarnings(max(vars_and_offsets$offset_value[vars_and_offsets$offset_type == "lag"]))
+#    if(max_lag > -Inf && leading_rows_to_drop < max_lag) {
+#        stop("leading_rows_to_drop must be at least as large as the largest lag in vars_and_offsets")
+#    }
+#    
+#    max_horizon <- suppressWarnings(max(vars_and_offsets$offset_value[vars_and_offsets$offset_type == "horizon"]))
+#    if(max_horizon > -Inf && trailing_rows_to_drop < max_horizon) {
+#        stop("trailing_rows_to_drop must be at least as large as the largest horizon in vars_and_offsets")
+#    }
     
     ## rows to drop -- which rows should not be used as regression/density estimation examples
     ## either because the corresponding regression example cannot be formed
     ## or because we are performing cross-validation and don't want to use
     ## times adjacent to the prediction target
+    if(is.logical(additional_rows_to_drop)) {
+        additional_rows_to_drop <- which(additional_rows_to_drop)
+    }
     rows_to_drop <- c(seq_len(leading_rows_to_drop), # leading -- too early for all lags to be available
         seq_len(trailing_rows_to_drop) + nrow(data) - trailing_rows_to_drop, # trailing -- too late for all prediction horizons to be available
         additional_rows_to_drop # additional (e.g., near prediction target)
@@ -135,11 +140,16 @@ compute_offset_obs_vecs <- function(data,
         colnames(result) <- c(vars_and_offsets$combined_name, time_name)
     }
     
+    ## perform filtering
+    filtered_data <- compute_filter_values(data = data,
+        filter_control = filter_control,
+        phi = phi)
+    
     ## set column values in result
 	for(new_var_ind in seq_len(nrow(vars_and_offsets))) {
         offset_val <- vars_and_offsets[new_var_ind, "offset_value"]
         offset_type <- as.character(vars_and_offsets[new_var_ind, "offset_type"])
-        var_name <- as.character(vars_and_offsets[new_var_ind, "var_name"])
+        filtered_var_name <- vars_and_offsets[new_var_ind, "var_name"]
 		combined_name <- as.character(vars_and_offsets[new_var_ind, "combined_name"])
 		
         if(identical(offset_type, "lag")) {
@@ -150,7 +160,7 @@ compute_offset_obs_vecs <- function(data,
             data_inds <- seq(from = 1 + offset_val, to = nrow(result))
         }
 		
-		result[result_inds, combined_name] <- data[data_inds, var_name]
+		result[result_inds, combined_name] <- filtered_data[data_inds, filtered_var_name]
 	}
     
     if(!missing(time_name)) {
@@ -168,10 +178,10 @@ compute_offset_obs_vecs <- function(data,
         if(length(na_rows) > 0) {
             result <- result[-na_rows, , drop = FALSE]
             if(nrow(result) == 0) {
-                stop("0 rows in cross validation data after computing offsets and dropping NA rows")
+                stop("0 rows in cross validation data after filtering, computing offsets and dropping NA rows")
             }
         }
-    } else if(!identical(kcde_control$na.action, "na.pass")) {
+    } else if(!identical(na.action, "na.pass")) {
         stop("Unsupported na.action")
     }
     
