@@ -210,7 +210,7 @@ compute_na_rows_after_filter_and_offset <- function(data, phi, vars_and_offsets,
     
     filtered_and_lagged_data <- compute_offset_obs_vecs(data = data,
         filter_control = kcde_control$filter_control,
-        phi = phi,
+        phi = phi_init,
         vars_and_offsets = vars_and_offsets,
         time_name = kcde_control$time_name,
         leading_rows_to_drop = 0L,

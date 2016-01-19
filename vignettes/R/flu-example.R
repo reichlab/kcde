@@ -414,7 +414,9 @@ filter_control <- list(
         vectorize_filter_params_fn = vectorize_filter_params_butterworth_filter,
         vectorize_filter_params_args = NULL,
         update_filter_params_from_vectorized_fn = update_filter_params_from_vectorized_butterworth_filter,
-        update_filter_params_from_vectorized_args = NULL
+        update_filter_params_from_vectorized_args = NULL,
+        transform_fn = log,
+        detransform_fn = exp
     )
 )
 

@@ -160,18 +160,34 @@ compute_filter_values <- function(data,
     
     ## Fill in filtered_data
     for(ind in seq_along(non_null_phi_inds)) {
+        ## transform data to scale on which filtering will be performed
+        if(!is.null(filter_control[[non_null_phi_inds[ind]]]$transform_fn)) {
+            transformed_data_one_var <- 
+                filter_control[[non_null_phi_inds[ind]]]$transform_fn(
+                    data[, var_names_to_filter[ind]]
+                )
+        }
+        
         ## assemble arguments to filter coef function
         filter_args_args <- list(phi = phi[[non_null_phi_inds[ind]]])
-        filter_args_args$x <- data[, var_names_to_filter[ind]]
+        filter_args_args$x <- transformed_data_one_var
         
         ## call filter coef function
         filter_args <-
             do.call(filter_control[[non_null_phi_inds[ind]]]$filter_args_fn,
                 filter_args_args)
         
-        ## do filtering and store result in filtered_data
-        filtered_data[, non_null_phi_inds[ind]] <-
+        ## do filtering
+        filtered_data_one_var <-
             do.call(filter_control[[non_null_phi_inds[ind]]]$filter_fn, filter_args)
+        
+        ## transform data back to original scale and store result in filtered_data
+        if(!is.null(filter_control[[non_null_phi_inds[ind]]]$detransform_fn)) {
+            filtered_data[, non_null_phi_inds[ind]] <-
+                filter_control[[non_null_phi_inds[ind]]]$detransform_fn(
+                    filtered_data_one_var
+                )
+        }
     }
     
     ## return
