@@ -61,12 +61,27 @@ update_filter_params_from_vectorized_butterworth_filter <- function(phi_est_vect
 #' @return named list with parameters for a call to signal::filter.  Filter
 #'   coefficients are computed via signal::remez
 compute_filter_args_butterworth_filter <- function(phi, x) {
-    return(list(
-        x = x,
-        filt = signal::butter(
+    
+    ## Obtain Butterworth filter coefficients
+    ## If W is too small, we can get numerical instability in the filtering.
+    ## Check for "too small" values and manually set filter coefficients to do
+    ## "no filtering".  The cutoff for W was determined experimentally, and
+    ## corresponds roughly to the value at which MA coefficients go below
+    ## machine epsilon.  This seems to prevent some issues I was running into
+    ## with filtered values exploding.
+    if(phi$W < 0.05) {
+        filt <- c(1, rep(0, phi$n - 1))
+        class(filt) <- "Ma"
+    } else {
+        filt <- signal::butter(
             n = phi$n,
             W = phi$W
-        ),
+        )
+    }
+    
+    return(list(
+        x = x,
+        filt = filt,
         impute_fn = phi$impute_fn
     ))
 }
