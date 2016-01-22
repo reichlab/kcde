@@ -25,7 +25,9 @@ kcde_predict <- function(kcde_fit,
         trailing_rows_to_drop = max(kcde_fit$vars_and_offsets$offset_value[kcde_fit$vars_and_offsets$offset_type == "horizon"]),
         additional_training_rows_to_drop = NULL,
         prediction_type = "distribution",
-        n) {
+        n,
+        prediction_test_lead_obs,
+        log = FALSE) {
     ## get training and prediction examples
     ## create data frame of "examples" -- lagged observation vectors and
     ## corresponding prediction targets
@@ -68,10 +70,12 @@ kcde_predict <- function(kcde_fit,
             train_lagged_obs = training_examples[, predictive_var_combined_names, drop = FALSE],
             train_lead_obs = training_examples[, target_var_combined_names, drop = FALSE],
             prediction_lagged_obs = prediction_examples[, predictive_var_combined_names, drop = FALSE],
-            prediction_test_lead_obs = prediction_examples[, target_var_combined_names, drop = FALSE],
+#            prediction_test_lead_obs = prediction_examples[, target_var_combined_names, drop = FALSE],
+            prediction_test_lead_obs = prediction_test_lead_obs,
             kcde_fit = kcde_fit,
             prediction_type = prediction_type,
-            n = n))
+            n = n,
+            log = log))
 }
 
 #' Make predictions from an estimated kcde model forward prediction_horizon time
@@ -101,7 +105,8 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
     prediction_test_lead_obs,
     kcde_fit,
     prediction_type="distribution",
-    n) {
+    n,
+    log = FALSE) {
     
     if(identical(prediction_type, "centers-and-weights")) {
         kernel_centers_and_weights <-
@@ -117,7 +122,8 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
             train_lead_obs,
             prediction_lagged_obs,
             prediction_test_lead_obs,
-            kcde_fit))
+            kcde_fit,
+            log = log))
     } else if(identical(prediction_type, "point")) {
         kernel_centers_and_weights <-
             kcde_kernel_centers_and_weights_predict_given_lagged_obs(
@@ -130,16 +136,11 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
             kernel_centers_and_weights = kernel_centers_and_weights,
             kcde_fit = kcde_fit))
     } else if(identical(prediction_type, "sample")) {
-        kernel_centers_and_weights <-
-            kcde_kernel_centers_and_weights_predict_given_lagged_obs(
-                train_lagged_obs = train_lagged_obs,
-                train_lead_obs = train_lead_obs,
-                prediction_lagged_obs = prediction_lagged_obs,
-                kcde_fit = kcde_fit)
-        
-        return(kcde_sample_predict_given_kernel_centers_and_weights(
+        return(kcde_sample_predict_given_lagged_lead_obs(
             n = n,
-            kernel_centers_and_weights = kernel_centers_and_weights,
+            train_lagged_obs = train_lagged_obs,
+            train_lead_obs = train_lead_obs,
+            prediction_lagged_obs = prediction_lagged_obs,
             kcde_fit = kcde_fit))
     } else {
         stop("Invalid prediction type.")
@@ -231,7 +232,8 @@ kcde_dist_predict_given_lagged_lead_obs <- function(train_lagged_obs,
     train_lead_obs,
     prediction_lagged_obs,
     prediction_test_lead_obs,
-    kcde_fit) {
+    kcde_fit,
+    log) {
     
     ## compute log of kernel function values representing similarity
     ## of lagged observation vectors from train_data and predict_data.
@@ -250,7 +252,7 @@ kcde_dist_predict_given_lagged_lead_obs <- function(train_lagged_obs,
             log_kernel_values_xy <- compute_kernel_values(
                 cbind(train_lagged_obs, train_lead_obs),
                 cbind(prediction_lagged_obs,
-                    prediction_test_lead_obs),
+                    prediction_test_lead_obs[prediction_test_row_ind, , drop = FALSE]),
                 kernel_components = kcde_fit$kcde_control$kernel_components,
                 theta = kcde_fit$theta_hat,
                 log = TRUE
@@ -260,7 +262,11 @@ kcde_dist_predict_given_lagged_lead_obs <- function(train_lagged_obs,
                     log_sum_kernel_values_x)
         })
     
-    return(log_result)
+    if(log) {
+        return(log_result)
+    } else {
+        return(exp(log_result))
+    }
 }
 
 #' Make predictions from an estimated kcde model forward prediction_horizon time
@@ -326,9 +332,18 @@ kcde_point_predict_given_kernel_centers_and_weights <- function(kernel_centers_a
 #'         the weights assigned to each observation (up to a constant of
 #'         proportionality if normalize_weights is FALSE)
 #'     centers: a copy of the train_lead_obs argument -- kernel centers
-kcde_sample_predict_given_kernel_centers_and_weights <- function(n,
-    kernel_centers_and_weights,
+kcde_sample_predict_given_lagged_lead_obs <- function(n,
+    train_lagged_obs,
+    train_lead_obs,
+    prediction_lagged_obs,
     kcde_fit) {
+    
+    kernel_centers_and_weights <-
+        kcde_kernel_centers_and_weights_predict_given_lagged_obs(
+            train_lagged_obs = train_lagged_obs,
+            train_lead_obs = train_lead_obs,
+            prediction_lagged_obs = prediction_lagged_obs,
+            kcde_fit = kcde_fit)
     
     result <- matrix(NA, nrow = n, ncol = 1)
     sampled_kernel_inds <- sample(length(kernel_centers_and_weights$weights),
@@ -340,10 +355,11 @@ kcde_sample_predict_given_kernel_centers_and_weights <- function(n,
         result_inds <- which(sampled_kernel_inds == kernel_ind)
         
         result[result_inds, ] <- simulate_values_from_product_kernel(n = length(result_inds),
-            conditioning_obs = kernel_centers_and_weights$conditioning_vars[kernel_ind, , drop = FALSE],
-            center = kernel_centers_and_weights$centers[kernel_ind, , drop = FALSE],
+            conditioning_obs = prediction_lagged_obs,
+            center = cbind(kernel_centers_and_weights$conditioning_vars[kernel_ind, , drop = FALSE],
+                kernel_centers_and_weights$centers[kernel_ind, , drop = FALSE]),
             kernel_components = kcde_fit$kcde_control$kernel_components,
-            theta = kcde_fit$theta)
+            theta = kcde_fit$theta)[, colnames(kernel_centers_and_weights$centers)]
     }
     
     return(result)

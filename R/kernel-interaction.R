@@ -182,8 +182,8 @@ compute_kernel_values <- function(train_obs,
         if(length(col_names) > 0) {
 	        ## assemble arguments to kernel function
 	        kernel_fn_args <- theta[[ind]]
-	        kernel_fn_args$x <- train_obs[, col_names, drop = FALSE]
-	        kernel_fn_args$center <- prediction_obs[, col_names, drop = FALSE]
+	        kernel_fn_args$x <- prediction_obs[, col_names, drop = FALSE]
+	        kernel_fn_args$center <- train_obs[, col_names, drop = FALSE]
 	        kernel_fn_args$log <- TRUE
 	        
 	        ## call kernel function and store results
@@ -244,7 +244,7 @@ simulate_values_from_product_kernel <- function(n,
         if(length(conditioning_col_names) > 0 &&
             conditioning_col_names %in% center_col_names) {
             simulated_values[, conditioning_col_names] <-
-                rep(conditioning_obs[, conditioning_col_names], each = n)
+                rep(as.vector(as.matrix(conditioning_obs[, conditioning_col_names])), each = n)
         }
         
         if(length(center_col_names) > 0) {

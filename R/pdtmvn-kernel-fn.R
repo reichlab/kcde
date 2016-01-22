@@ -84,45 +84,45 @@ pdtmvn_kernel <- function(x,
         x_names,
 		log,
         ...) {
-    if(length(dim(center)) > 0) {
-        center_names <- colnames(center)
-        center <- as.vector(as.matrix(center))
-        names(center) <- center_names
+    if(length(dim(x)) > 0) {
+        x_arg_names <- colnames(x)
+        x <- as.vector(as.matrix(x))
+        names(x) <- x_arg_names
     }
     
-    if(ncol(x) != ncol(bw)) {
+    if(ncol(center) != ncol(bw)) {
         ## evaluating a marginal kernel for a subset of variables
-        if(any(c(lower != -Inf, upper != Inf)) && ncol(x) != ncol(bw)) {
+        if(any(c(lower != -Inf, upper != Inf)) && ncol(center) != ncol(bw)) {
             stop("Lower and upper bounds must be -Inf and Inf respectively if evaluating a marginal kernel.")
         }
         
         
-        inds_center_vars_in_orig_vars <- which(x_names %in% names(center))
+        inds_x_vars_in_orig_vars <- which(x_names %in% names(x))
         
-        return(pdtmvn::dpdtmvn(x = x,
-                mean = center,
-                sigma = bw[inds_center_vars_in_orig_vars, inds_center_vars_in_orig_vars, drop = FALSE],
+        return(pdtmvn::dpdtmvn(x = center[, x_names[inds_x_vars_in_orig_vars]],
+                mean = x[x_names[inds_x_vars_in_orig_vars]],
+                sigma = bw[inds_x_vars_in_orig_vars, inds_x_vars_in_orig_vars, drop = FALSE],
 #                sigma_continuous = bw_continuous,
 #                conditional_sigma_discrete = conditional_bw_discrete,
 #                conditional_mean_discrete_offset_multiplier = 
 #                    conditional_center_discrete_offset_multiplier,
-                lower = lower[names(center)],
-                upper = upper[names(center)],
+                lower = lower[names(x)],
+                upper = upper[names(x)],
 #                continuous_vars = continuous_var_col_inds,
 #                discrete_vars = discrete_var_col_inds,
                 discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
                 log = log,
                 validate_level = 1L))
     } else {
-        return(pdtmvn::dpdtmvn(x = x,
-                mean = center,
+        return(pdtmvn::dpdtmvn(x = center[, x_names],
+                mean = x[x_names],
                 sigma = bw,
                 sigma_continuous = bw_continuous,
                 conditional_sigma_discrete = conditional_bw_discrete,
                 conditional_mean_discrete_offset_multiplier = 
                     conditional_center_discrete_offset_multiplier,
-                lower = lower[names(center)],
-                upper = upper[names(center)],
+                lower = lower[names(x)],
+                upper = upper[names(x)],
                 continuous_vars = continuous_var_col_inds,
                 discrete_vars = discrete_var_col_inds,
                 discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
@@ -179,7 +179,6 @@ rpdtmvn_kernel <- function(n,
     lower,
     upper,
     x_names,
-    log,
     ...) {
     if(length(dim(center)) > 0) {
         center_names <- colnames(center)
@@ -188,10 +187,10 @@ rpdtmvn_kernel <- function(n,
     }
     return(pdtmvn::rpdtmvn(n = n,
             x_fixed = conditioning_obs,
-            mean = cbind(conditioning_obs, t(as.matrix(center)))[, x_names],
+            mean = t(as.matrix(center))[, x_names],
             sigma = bw,
-            lower = lower[c(names(center), names(conditioning_obs))],
-            upper = upper[c(names(center), names(conditioning_obs))],
+            lower = lower[x_names],
+            upper = upper[x_names],
             continuous_vars = continuous_var_col_inds,
             discrete_vars = discrete_var_col_inds,
             discrete_var_range_fns = discrete_var_range_fns,
@@ -240,6 +239,7 @@ compute_pdtmvn_kernel_bw_params_from_bw_eigen <- function(bw_evecs,
 
 #' A function to vectorize the parameters of the pdtmvn_kernel and convert
 #' to estimation scale.
+#' 
 #' @param theta_list parameters for the pdtmvn_kernel in list format
 #' @param parameterization character; currently, only supported value is
 #'     "bw-diagonalized-est-eigenvalues"
@@ -250,7 +250,9 @@ compute_pdtmvn_kernel_bw_params_from_bw_eigen <- function(bw_evecs,
 vectorize_params_pdtmvn_kernel <- function(theta_list, ...) {
 	if(identical(theta_list$parameterization, "bw-diagonalized-est-eigenvalues")) {
 		return(theta_list$log_bw_evals)
-	} else {
+	} else if(identical(theta_list$parameterization, "bw-chol-decomp")) {
+        return(theta_list$bw_chol_decomp_vec)
+    } else {
 		stop("Invalid parameterization for pdtmvn kernel function")
 	}
 }
@@ -285,7 +287,19 @@ update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vecto
 			theta = theta,
 			num_theta_vals_used = num_bw_evals
 		))
-	} else {
+    } else if(identical(theta_list$parameterization, "bw-chol-decomp")) {
+        num_bw_chol_decomp_vec_entries <- ncol(theta$bw_evecs) * (1 + ncol(theta$bw_evecs)) / 2
+        temp <- compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp(bw_chol_decomp = ,
+            theta$continuous_var_col_inds,
+            theta$discrete_var_col_inds)
+        
+        theta[names(temp)] <- temp
+        
+        return(list(
+            theta = theta,
+            num_theta_vals_used = num_bw_evals
+        ))
+    } else {
 		stop("Invalid parameterization for pdtmvn kernel function")
 	}
 }
