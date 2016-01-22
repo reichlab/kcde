@@ -137,7 +137,7 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
 	            	return(NULL) # represents a model that has been previously evaluated or doesn't include any predictive variables
 	            }
 	        }
-		)
+		) # This parenthesis is used only when foreach is not used above
         
         ## drop elements corresponding to previously explored models or models without any predictive variables
         non_null_components <- sapply(crossval_results,
@@ -442,16 +442,25 @@ kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
                     ## calculate and return value of loss function based on
                     ## prediction and realized value
                     loss_args <- kcde_control$loss_args
-                    loss_args$prediction_result <- kcde_predict_given_lagged_obs(
-		                train_lagged_obs=train_lagged_obs,
-		                train_lead_obs=train_lead_obs[, target_name, drop = FALSE],
-		                prediction_lagged_obs=prediction_lagged_obs,
-		                prediction_test_lead_obs=prediction_lead_obs[, target_name, drop = FALSE],
-		                kcde_fit=list(theta_hat=theta,
-		                    kcde_control=kcde_control
-		                ),
-		                prediction_type=kcde_control$loss_fn_prediction_type)
                     
+                    loss_fn_prediction_args <- c(
+                        kcde_control$loss_fn_prediction_args,
+                        list(
+                            train_lagged_obs=train_lagged_obs,
+                            train_lead_obs=train_lead_obs[, target_name, drop = FALSE],
+                            prediction_lagged_obs=prediction_lagged_obs,
+                            prediction_test_lead_obs=prediction_lead_obs[, target_name, drop = FALSE],
+                            kcde_fit=list(
+                                theta_hat=theta,
+                                kcde_control=kcde_control
+                            )
+                        )
+                    )
+                    loss_args$prediction_result <- do.call(
+                        kcde_predict_given_lagged_obs,
+                        loss_fn_prediction_args
+                    )
+                        
                     loss_args$obs <- as.numeric(
                         cross_validation_examples[
                             t_pred, target_name]
@@ -463,12 +472,17 @@ kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
             return(sum(crossval_loss_by_prediction_target))
         })
     
-#    cat(sum(crossval_loss_by_time_ind))
+    cat(combined_params_vector)
+    cat("\n")
+    cat(sum(crossval_loss_by_time_ind))
+    cat("\n")
+    cat("\n")
     
     if(any(is.na(crossval_loss_by_time_ind))) {
         ## parameters resulted in numerical instability?
         stop("NAs in cross validated estimate of loss")
-        ## old solution was to return largest non-infinite value
+        ## old solution was to return largest non-infinite value;
+        ## results in rejection of these parameter values
         return(.Machine$double.xmax)
     } else {
         return(sum(crossval_loss_by_time_ind))

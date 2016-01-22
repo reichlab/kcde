@@ -57,12 +57,12 @@ create_kcde_control <- function(X_names,
         filter_control,
         crossval_buffer,
         loss_fn,
-        loss_fn_prediction_type,
+        loss_fn_prediction_args,
         loss_args,
         par_packages = NULL,
         na.action = "na.omit") {
     kcde_control <- list()
-
+    
     kcde_control$X_names <- X_names
     kcde_control$y_names <- y_names
     kcde_control$time_name <- time_name
@@ -75,7 +75,7 @@ create_kcde_control <- function(X_names,
     kcde_control$crossval_buffer <- crossval_buffer
     
     kcde_control$loss_fn <- loss_fn
-    kcde_control$loss_fn_prediction_type <- loss_fn_prediction_type
+    kcde_control$loss_fn_prediction_args <- loss_fn_prediction_args
     kcde_control$loss_args <- loss_args
     
     kcde_control$par_packages <- par_packages
