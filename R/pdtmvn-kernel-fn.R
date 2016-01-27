@@ -97,9 +97,12 @@ pdtmvn_kernel <- function(x,
         }
         
         
-        inds_x_vars_in_orig_vars <- which(x_names %in% names(x))
+        reduced_x_names <- names(x)
+        inds_x_vars_in_orig_vars <- which(x_names %in% reduced_x_names)
+        continuous_x_names <- x_names[continuous_var_col_inds]
+        reduced_continuous_var_col_inds <- which(reduced_x_names %in% continuous_x_names)
         
-        return(pdtmvn::dpdtmvn(x = center[, x_names[inds_x_vars_in_orig_vars]],
+        return(pdtmvn::dpdtmvn(x = center[, x_names[inds_x_vars_in_orig_vars], drop = FALSE],
                 mean = x[x_names[inds_x_vars_in_orig_vars]],
                 sigma = bw[inds_x_vars_in_orig_vars, inds_x_vars_in_orig_vars, drop = FALSE],
 #                sigma_continuous = bw_continuous,
@@ -108,13 +111,13 @@ pdtmvn_kernel <- function(x,
 #                    conditional_center_discrete_offset_multiplier,
                 lower = lower[names(x)],
                 upper = upper[names(x)],
-#                continuous_vars = continuous_var_col_inds,
+                continuous_vars = reduced_continuous_var_col_inds,
 #                discrete_vars = discrete_var_col_inds,
                 discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
                 log = log,
                 validate_level = 1L))
     } else {
-        return(pdtmvn::dpdtmvn(x = center[, x_names],
+        return(pdtmvn::dpdtmvn(x = center[, x_names, drop = FALSE],
                 mean = x[x_names],
                 sigma = bw,
                 sigma_continuous = bw_continuous,
@@ -237,6 +240,43 @@ compute_pdtmvn_kernel_bw_params_from_bw_eigen <- function(bw_evecs,
     return(bw_params)
 }
 
+#' Compute the parameters bw, bw_continuous, conditional_bw_discrete, and
+#' conditional_center_discrete_offset_multiplier for the pdtmvn_kernel function
+#' from the Cholesky decomposition of the bandwidth matrix.
+#' 
+#' @param bw_chol_decomp lower triangular matrix giving the Cholesky
+#'     decomposition of the bandwidth matrix.
+#' @param continuous_vars Vector containing column indices for continuous
+#'     variables.
+#' @param discrete_vars Vector containing column indices for discrete variables.
+#' 
+#' @return Named list with four components: bw, bw_continuous,
+#'     conditional_bw_discrete, and conditional_center_discrete_offset_multiplier
+compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp <- function(bw_chol_decomp,
+    bw_chol_decomp_vec,
+    continuous_var_col_inds,
+    discrete_var_col_inds) {
+    bw <- bw_chol_decomp %*% t(bw_chol_decomp)
+    
+    bw_params <- c(
+        list(bw = bw,
+            bw_chol_decomp = bw_chol_decomp,
+            bw_chol_decomp_vec = bw_chol_decomp_vec),
+        pdtmvn::compute_sigma_subcomponents(sigma = bw,
+            continuous_vars = continuous_var_col_inds,
+            discrete_vars = discrete_var_col_inds,
+            validate_level = 0)
+    )
+    
+    names(bw_params)[names(bw_params) == "sigma_continuous"] <- "bw_continuous"
+    names(bw_params)[names(bw_params) == "conditional_sigma_discrete"] <- 
+        "conditional_bw_discrete"
+    names(bw_params)[names(bw_params) == "conditional_mean_discrete_offset_multiplier"] <- 
+        "conditional_center_discrete_offset_multiplier"
+    
+    return(bw_params)
+}
+
 #' A function to vectorize the parameters of the pdtmvn_kernel and convert
 #' to estimation scale.
 #' 
@@ -287,17 +327,33 @@ update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vecto
 			theta = theta,
 			num_theta_vals_used = num_bw_evals
 		))
-    } else if(identical(theta_list$parameterization, "bw-chol-decomp")) {
-        num_bw_chol_decomp_vec_entries <- ncol(theta$bw_evecs) * (1 + ncol(theta$bw_evecs)) / 2
-        temp <- compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp(bw_chol_decomp = ,
+    } else if(identical(theta$parameterization, "bw-chol-decomp")) {
+        ## Obtain vector of parameters for Cholesky decomposition
+        num_bw_chol_decomp_vec_entries <-
+            ncol(theta$bw_chol_decomp) * (1 + ncol(theta$bw_chol_decomp)) / 2
+        bw_chol_decomp_vec <- theta_est_vector[seq_len(num_bw_chol_decomp_vec_entries)]
+        
+        ## Update Cholesky decomposition matrix
+        update_inds <- as.matrix(expand.grid(
+                seq_len(ncol(theta$bw_chol_decomp)),
+                seq_len(ncol(theta$bw_chol_decomp))
+        ))
+        update_inds <- update_inds[update_inds[, 1] >= update_inds[, 2], ]
+        theta$bw_chol_decomp[update_inds] <- bw_chol_decomp_vec
+        
+        ## Compute other bandwidth parameters used in calls to pdtmvn kernel
+        temp <- compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp(
+            bw_chol_decomp_vec = bw_chol_decomp_vec,
+            bw_chol_decomp = theta$bw_chol_decomp,
             theta$continuous_var_col_inds,
             theta$discrete_var_col_inds)
         
         theta[names(temp)] <- temp
         
+        ## Return
         return(list(
             theta = theta,
-            num_theta_vals_used = num_bw_evals
+            num_theta_vals_used = num_bw_chol_decomp_vec_entries
         ))
     } else {
 		stop("Invalid parameterization for pdtmvn kernel function")
@@ -352,7 +408,50 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
         
 		new_theta$continuous_var_col_inds = continuous_discrete_var_col_inds$continuous_vars
         new_theta$discrete_var_col_inds = continuous_discrete_var_col_inds$discrete_vars
-	} else {
+	} else if(identical(new_theta$parameterization, "bw-chol-decomp")) {
+        continuous_discrete_var_col_inds <-
+            get_col_inds_continuous_discrete_vars_used(colnames(x),
+                new_theta$continuous_vars,
+                new_theta$discrete_vars)
+        
+        if(ncol(x) > 1) {
+            new_theta$x_names <- colnames(x)
+            
+            require(robust)
+            sample_cov_hat <- robust::covRob(x)$cov
+        } else {
+            new_theta$x_names <- names(x)
+            
+            sample_cov_hat <- matrix(var(x))
+        }
+        ## Get Cholesky decomposition.  R returns upper triangular portion,
+        ## but our parameterization works with lower triangular portion, so transpose.
+        sample_cov_chol <- t(chol(sample_cov_hat))
+        
+        ## Set Cholesky decomposition and vectorized Cholesky decomposition in theta
+        new_theta$bw_chol_decomp <- sample_cov_chol
+        
+        lower_triangular_inds <- as.matrix(expand.grid(
+                seq_len(ncol(new_theta$bw_chol_decomp)),
+                seq_len(ncol(new_theta$bw_chol_decomp))
+            ))
+        lower_triangular_inds <-
+            lower_triangular_inds[lower_triangular_inds[, 1] >= lower_triangular_inds[, 2], ]
+        
+        new_theta$bw_chol_decomp_vec <- new_theta$bw_chol_decomp[lower_triangular_inds]
+        
+        ## Compute other bandwidth parameters used in calls to pdtmvn kernel
+        bw_params <- compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp(
+            bw_chol_decomp_vec = new_theta$bw_chol_decomp_vec,
+            bw_chol_decomp = new_theta$bw_chol_decomp,
+            continuous_discrete_var_col_inds$continuous_vars,
+            continuous_discrete_var_col_inds$discrete_vars)
+        
+        new_theta[names(bw_params)] <- bw_params
+        
+        new_theta$continuous_var_col_inds = continuous_discrete_var_col_inds$continuous_vars
+        new_theta$discrete_var_col_inds = continuous_discrete_var_col_inds$discrete_vars
+    } else {
 		stop("Invalid parameterization for pdtmvn kernel function")
 	}
     

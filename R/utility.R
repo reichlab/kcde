@@ -51,6 +51,10 @@ update_vars_and_offsets <- function(prev_vars_and_offsets,
 					update_offset_value)))
     }
     
+    ## Set rownames to NULL -- otherwise, the order in which variables are added
+    ## and removed from the model shows up, and comparisons with identical() fail
+    rownames(updated_vars_and_offsets) <- NULL
+    
     return(updated_vars_and_offsets)
 }
 
@@ -140,16 +144,20 @@ compute_offset_obs_vecs <- function(data,
         colnames(result) <- c(vars_and_offsets$combined_name, time_name)
     }
     
-    ## perform filtering
-    filtered_data <- compute_filter_values(data = data,
-        filter_control = filter_control,
-        phi = phi)
+    ## perform filtering if required
+    if(!is.null(filter_control)) {
+        filtered_data <- compute_filter_values(data = data,
+            filter_control = filter_control,
+            phi = phi)
+    } else {
+        filtered_data <- data
+    }
     
     ## set column values in result
 	for(new_var_ind in seq_len(nrow(vars_and_offsets))) {
         offset_val <- vars_and_offsets[new_var_ind, "offset_value"]
         offset_type <- as.character(vars_and_offsets[new_var_ind, "offset_type"])
-        filtered_var_name <- vars_and_offsets[new_var_ind, "var_name"]
+        var_name <- vars_and_offsets[new_var_ind, "var_name"]
 		combined_name <- as.character(vars_and_offsets[new_var_ind, "combined_name"])
 		
         if(identical(offset_type, "lag")) {
@@ -160,7 +168,7 @@ compute_offset_obs_vecs <- function(data,
             data_inds <- seq(from = 1 + offset_val, to = nrow(result))
         }
 		
-		result[result_inds, combined_name] <- filtered_data[data_inds, filtered_var_name]
+		result[result_inds, combined_name] <- filtered_data[data_inds, var_name]
 	}
     
     if(!missing(time_name)) {
