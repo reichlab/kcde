@@ -150,48 +150,56 @@ compute_filter_values <- function(data,
     
     ## Determine for which variables we need to perform filtering
     non_null_phi_inds <- which(!sapply(phi, is.null))
-    var_names_to_filter <- sapply(non_null_phi_inds, function(ind) {
-        filter_control[[ind]]$var_name
-    })
     
-    ## Allocate matrix to store filtered variables
-    filtered_data <- matrix(NA, nrow = nrow(data), ncol = length(var_names_to_filter))
-    colnames(filtered_data) <- paste0("filtered_", var_names_to_filter)
-    
-    ## Fill in filtered_data
-    for(ind in seq_along(non_null_phi_inds)) {
-        ## transform data to scale on which filtering will be performed
-        if(!is.null(filter_control[[non_null_phi_inds[ind]]]$transform_fn)) {
-            transformed_data_one_var <- 
-                filter_control[[non_null_phi_inds[ind]]]$transform_fn(
-                    data[, var_names_to_filter[ind]]
-                )
+    if(length(non_null_phi_inds) == 0) {
+        ## No variables need filtering
+        return(data)
+    } else {
+        ## At least one variable needs filtering
+        
+        var_names_to_filter <- sapply(non_null_phi_inds, function(ind) {
+            filter_control[[ind]]$var_name
+        })
+        
+        ## Allocate matrix to store filtered variables
+        filtered_data <- matrix(NA, nrow = nrow(data), ncol = length(var_names_to_filter))
+        colnames(filtered_data) <- paste0("filtered_", var_names_to_filter)
+        
+        ## Fill in filtered_data
+        for(ind in seq_along(non_null_phi_inds)) {
+            ## transform data to scale on which filtering will be performed
+            if(!is.null(filter_control[[non_null_phi_inds[ind]]]$transform_fn)) {
+                transformed_data_one_var <- 
+                    filter_control[[non_null_phi_inds[ind]]]$transform_fn(
+                        data[, var_names_to_filter[ind]]
+                    )
+            }
+            
+            ## assemble arguments to filter coef function
+            filter_args_args <- list(phi = phi[[non_null_phi_inds[ind]]])
+            filter_args_args$x <- transformed_data_one_var
+            
+            ## call filter coef function
+            filter_args <-
+                do.call(filter_control[[non_null_phi_inds[ind]]]$filter_args_fn,
+                    filter_args_args)
+            
+            ## do filtering
+            filtered_data_one_var <-
+                do.call(filter_control[[non_null_phi_inds[ind]]]$filter_fn, filter_args)
+            
+            ## transform data back to original scale and store result in filtered_data
+            if(!is.null(filter_control[[non_null_phi_inds[ind]]]$detransform_fn)) {
+                filtered_data[, non_null_phi_inds[ind]] <-
+                    filter_control[[non_null_phi_inds[ind]]]$detransform_fn(
+                        filtered_data_one_var
+                    )
+            }
         }
         
-        ## assemble arguments to filter coef function
-        filter_args_args <- list(phi = phi[[non_null_phi_inds[ind]]])
-        filter_args_args$x <- transformed_data_one_var
-        
-        ## call filter coef function
-        filter_args <-
-            do.call(filter_control[[non_null_phi_inds[ind]]]$filter_args_fn,
-                filter_args_args)
-        
-        ## do filtering
-        filtered_data_one_var <-
-            do.call(filter_control[[non_null_phi_inds[ind]]]$filter_fn, filter_args)
-        
-        ## transform data back to original scale and store result in filtered_data
-        if(!is.null(filter_control[[non_null_phi_inds[ind]]]$detransform_fn)) {
-            filtered_data[, non_null_phi_inds[ind]] <-
-                filter_control[[non_null_phi_inds[ind]]]$detransform_fn(
-                    filtered_data_one_var
-                )
-        }
+        ## return
+        return(cbind(data, as.data.frame(filtered_data)))
     }
-    
-    ## return
-    return(cbind(data, as.data.frame(filtered_data)))
 }
 
 #' Forward and reverse pass filter to correct phase shift introduced by one-pass
