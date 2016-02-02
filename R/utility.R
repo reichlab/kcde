@@ -49,6 +49,11 @@ update_vars_and_offsets <- function(prev_vars_and_offsets,
 					"_",
                     update_offset_type,
 					update_offset_value)))
+        
+        ## Sort rows by combined_name to ensure uniqueness
+        row_reordering <- order(updated_vars_and_offsets$combined_name)
+        
+        updated_vars_and_offsets <- updated_vars_and_offsets[row_reordering, , drop = FALSE]
     }
     
     ## Set rownames to NULL -- otherwise, the order in which variables are added

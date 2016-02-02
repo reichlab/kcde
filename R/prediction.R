@@ -26,6 +26,7 @@ kcde_predict <- function(kcde_fit,
         additional_training_rows_to_drop = NULL,
         prediction_type = "distribution",
         n,
+        p,
         prediction_test_lead_obs,
         log = FALSE) {
     ## get training and prediction examples
@@ -75,6 +76,7 @@ kcde_predict <- function(kcde_fit,
             kcde_fit = kcde_fit,
             prediction_type = prediction_type,
             n = n,
+            p = p,
             log = log))
 }
 
@@ -106,6 +108,7 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
     kcde_fit,
     prediction_type="distribution",
     n,
+    p,
     log = FALSE) {
     
     if(identical(prediction_type, "centers-and-weights")) {
@@ -137,6 +140,14 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
             kcde_fit = kcde_fit))
     } else if(identical(prediction_type, "sample")) {
         return(kcde_sample_predict_given_lagged_lead_obs(
+            n = n,
+            train_lagged_obs = train_lagged_obs,
+            train_lead_obs = train_lead_obs,
+            prediction_lagged_obs = prediction_lagged_obs,
+            kcde_fit = kcde_fit))
+    } else if(identical(prediction_type, "quantile")) {
+        return(kcde_quantile_predict_given_lagged_lead_obs(
+            p = p,
             n = n,
             train_lagged_obs = train_lagged_obs,
             train_lead_obs = train_lead_obs,
@@ -308,6 +319,8 @@ kcde_point_predict_given_kernel_centers_and_weights <- function(kernel_centers_a
 #' This function requires that the kernel weights and centers have already been
 #' computed.
 #' 
+#' @param n sample size for sample from predictive distribution used in
+#'     approximating quantiles
 #' @param train_lagged_obs is a matrix (with column names) containing the
 #'     lagged observation vector computed from the training data.  Each row
 #'     corresponds to a time point.  Each column is a (lagged) variable.
@@ -318,20 +331,9 @@ kcde_point_predict_given_kernel_centers_and_weights <- function(kernel_centers_a
 #'     lagged observation vector computed from the prediction data.  There is
 #'     only one row, representing one time point.  Each column is a (lagged)
 #'     variable.
-#' @param prediction_test_lead_obs is a matrix (with column names) containing
-#'     prediction target vectors computed from the prediction data.  Each row
-#'     represents one time point.  Each column is a (leading) target variable.
 #' @param kcde_fit is an object representing a fitted kcde model
-#' @param normalize_weights boolean, should the weights be normalized?
 #' 
-#' @return a list with three components:
-#'     log_weights: a vector of length = length(train_lagged_obs) with
-#'         the log of weights assigned to each observation (up to a constant of
-#'         proportionality if normalize_weights is FALSE)
-#'     weights: a vector of length = length(train_lagged_obs) with
-#'         the weights assigned to each observation (up to a constant of
-#'         proportionality if normalize_weights is FALSE)
-#'     centers: a copy of the train_lead_obs argument -- kernel centers
+#' @return a matrix with samples from the predictive distribution
 kcde_sample_predict_given_lagged_lead_obs <- function(n,
     train_lagged_obs,
     train_lead_obs,
@@ -363,4 +365,43 @@ kcde_sample_predict_given_lagged_lead_obs <- function(n,
     }
     
     return(result)
+}
+
+#' Draw a sample from the predictive distribution corresponding to an estimated
+#' kcde model forward prediction_horizon time steps from the end of predict_data.
+#' This function requires that the kernel weights and centers have already been
+#' computed.
+#' 
+#' @param p vector of probabilities which to compute quantiles
+#' @param n sample size for sample from predictive distribution used in
+#'     approximating quantiles
+#' @param train_lagged_obs is a matrix (with column names) containing the
+#'     lagged observation vector computed from the training data.  Each row
+#'     corresponds to a time point.  Each column is a (lagged) variable.
+#' @param train_lead_obs is a vector with length = nrow(train_lagged_obs) with
+#'     the value of the prediction target variable corresponding to each row in
+#'     the train_lagged_obs matrix.
+#' @param prediction_lagged_obs is a matrix (with column names) containing the
+#'     lagged observation vector computed from the prediction data.  There is
+#'     only one row, representing one time point.  Each column is a (lagged)
+#'     variable.
+#' @param kcde_fit is an object representing a fitted kcde model
+#' 
+#' @return a vector of quantiles
+kcde_quantile_predict_given_lagged_lead_obs <- function(
+    p,
+    n,
+    train_lagged_obs,
+    train_lead_obs,
+    prediction_lagged_obs,
+    kcde_fit) {
+    
+    predictive_sample <- kcde_sample_predict_given_lagged_lead_obs(
+        n = n,
+        train_lagged_obs = train_lagged_obs,
+        train_lead_obs = train_lead_obs,
+        prediction_lagged_obs = prediction_lagged_obs,
+        kcde_fit = kcde_fit)
+    
+    return(apply(predictive_sample, 2, quantile, probs = p))
 }

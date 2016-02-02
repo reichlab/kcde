@@ -241,13 +241,18 @@ simulate_values_from_product_kernel <- function(n,
         center_col_names <- colnames(center)[
             colnames(center) %in% combined_names_in_component]
         
+        ## Fill in conditioning observations if there are any from this kernel component
+        ## that are in the center vector.
         if(length(conditioning_col_names) > 0 &&
-            conditioning_col_names %in% center_col_names) {
-            simulated_values[, conditioning_col_names] <-
-                rep(as.vector(as.matrix(conditioning_obs[, conditioning_col_names])), each = n)
+            any(conditioning_col_names %in% center_col_names)) {
+            simulated_values[, conditioning_col_names[conditioning_col_names %in% center_col_names]] <-
+                rep(as.vector(as.matrix(conditioning_obs[, conditioning_col_names[conditioning_col_names %in% center_col_names]])), each = n)
         }
         
-        if(length(center_col_names) > 0) {
+        ## Only need to sample from this kernel component if there are any variables used that
+        ## - are included in this kernel component, and
+        ## - aren't conditioning variables
+        if(length(center_col_names) > 0 && any(!(center_col_names %in% conditioning_col_names))) {
             ## assemble arguments to kernel function
             rkernel_args <- theta[[ind]]
             rkernel_args$n <- n
