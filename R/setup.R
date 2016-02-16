@@ -43,10 +43,12 @@
 #'     examples".
 #' @param loss_fn_name a string giving the name of the function use to
 #'     compute loss from predictions
-#' @param loss_fn_args a named list giving arguments to the loss function
+#' @param loss_args a named list giving arguments to the loss function
+#' @param variable_selection_method a character string specifying the method used to determine variable inclusion
 #' @param par_packages a character vector containing names of packages that need
 #'     to be loaded in instances of R when computations are performed in
 #'     parallel.
+#' @param na.action a character string specifying how NA values should be handled.
 #' 
 #' @return the (at this point, unvalidated) list of kcde_control parameters
 create_kcde_control <- function(X_names,
@@ -59,6 +61,7 @@ create_kcde_control <- function(X_names,
         loss_fn,
         loss_fn_prediction_args,
         loss_args,
+        variable_selection_method = "stepwise",
         par_packages = NULL,
         na.action = "na.omit") {
     kcde_control <- list()
@@ -77,6 +80,8 @@ create_kcde_control <- function(X_names,
     kcde_control$loss_fn <- loss_fn
     kcde_control$loss_fn_prediction_args <- loss_fn_prediction_args
     kcde_control$loss_args <- loss_args
+    
+    kcde_control$variable_selection_method <- variable_selection_method
     
     kcde_control$par_packages <- par_packages
     

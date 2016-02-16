@@ -341,6 +341,12 @@ update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vecto
         update_inds <- update_inds[update_inds[, 1] >= update_inds[, 2], ]
         theta$bw_chol_decomp[update_inds] <- bw_chol_decomp_vec
         
+        ## Enforce lower bound for entries on diagonal:
+        ## > 0 by an amount that's large enough to prevent numerical instability
+        zero_threshold <- 10^-7
+        diag(theta$bw_chol_decomp)[diag(theta$bw_chol_decomp) < zero_threshold] <-
+            zero_threshold
+        
         ## Compute other bandwidth parameters used in calls to pdtmvn kernel
         temp <- compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp(
             bw_chol_decomp_vec = bw_chol_decomp_vec,

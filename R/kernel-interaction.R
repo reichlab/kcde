@@ -165,7 +165,7 @@ compute_kernel_values <- function(train_obs,
 	if(!(identical(nrow(prediction_obs), 1L))) {
 		stop("In call to compute_kernel_values, prediction_obs must have exactly 1 row.")
 	}
-
+    
     ## create a matrix of log kernel values by component
 	## rows correspond to time points in train_obs, columns to components of
 	## the kernel function
@@ -222,7 +222,9 @@ simulate_values_from_product_kernel <- function(n,
     center,
     kernel_components,
     theta) {
-    if(!(identical(nrow(conditioning_obs), 1L)) || !(identical(nrow(center), 1L))) {
+    
+    conditioning_obs_missing <- missing(conditioning_obs) || is.null(conditioning_obs) 
+    if(!(conditioning_obs_missing || identical(nrow(conditioning_obs), 1L)) || !(identical(nrow(center), 1L))) {
         stop("In call to simulate_values_from_product_kernel, conditioning_obs and center must have exactly 1 row.")
     }
     
@@ -236,10 +238,14 @@ simulate_values_from_product_kernel <- function(n,
     for(ind in seq_along(kernel_components)) {
         combined_names_in_component <-
             kernel_components[[ind]]$vars_and_offsets$combined_name
-        conditioning_col_names <- colnames(conditioning_obs)[
-            colnames(conditioning_obs) %in% combined_names_in_component]
         center_col_names <- colnames(center)[
             colnames(center) %in% combined_names_in_component]
+        if(conditioning_obs_missing) {
+            conditioning_col_names <- NULL
+        } else {
+            conditioning_col_names <- colnames(conditioning_obs)[
+                colnames(conditioning_obs) %in% combined_names_in_component]
+        }
         
         ## Fill in conditioning observations if there are any from this kernel component
         ## that are in the center vector.
@@ -256,8 +262,10 @@ simulate_values_from_product_kernel <- function(n,
             ## assemble arguments to kernel function
             rkernel_args <- theta[[ind]]
             rkernel_args$n <- n
-            rkernel_args$conditioning_obs <-
-                conditioning_obs[, conditioning_col_names, drop = FALSE]
+            if(!conditioning_obs_missing) {
+                rkernel_args$conditioning_obs <-
+                    conditioning_obs[, conditioning_col_names, drop = FALSE]
+            }
             rkernel_args$center <- center[, center_col_names, drop = FALSE]
             
             ## call kernel function and store results

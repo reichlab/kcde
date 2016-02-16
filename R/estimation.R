@@ -94,95 +94,128 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
         stop("Unsupported na.action")
     }
     
-    repeat {
-        ## get cross-validation estimates of performance for model obtained by
-        ## adding or removing each variable/lag combination (except for the one
-        ## updated in the previous iteration) from the model, as well as the
-        ## corresponding parameter estimates
-        
-        ## commented out use of foreach for debugging purposes
+    if(identical(kcde_control$variable_selection_method, "stepwise")) {
+        repeat {
+            ## get cross-validation estimates of performance for model obtained by
+            ## adding or removing each variable/lag combination (except for the one
+            ## updated in the previous iteration) from the model, as well as the
+            ## corresponding parameter estimates
+            
+            ## commented out use of foreach for debugging purposes
 #        crossval_results <- foreach(i=seq_len(nrow(predictive_vars_and_offsets)),
 #            .packages=c("kcde", kcde_control$par_packages),
 #            .combine="c") %dopar% {
-        crossval_results <- lapply(seq_len(nrow(predictive_vars_and_offsets)),
-			function(i) {
-	        	descriptor_updated_model <- update_vars_and_offsets(
-                    prev_vars_and_offsets = current_model_vars_and_offsets,
-					update_var_name = predictive_vars_and_offsets[i, "var_name"],
-                    update_offset_value = predictive_vars_and_offsets[i, "offset_value"],
-                    update_offset_type = predictive_vars_and_offsets[i, "offset_type"])
-                
-	        	model_i_previously_evaluated <- any(sapply(
-					all_evaluated_model_descriptors,
-	        		function(descriptor) {
-	        			identical(descriptor_updated_model, descriptor)
-	        		}
-				))
-        		
-	            if(!model_i_previously_evaluated && any(descriptor_updated_model$offset_type == "lag")) {
-	            	potential_step_result <- 
-	                    est_kcde_params_stepwise_crossval_one_potential_step(
-	                        prev_vars_and_offsets=current_model_vars_and_offsets,
-	                        prev_theta=theta_hat,
-                            prev_phi=phi_hat,
-	                        update_var_name=predictive_vars_and_offsets[i, "var_name"],
-                            update_lag_value=predictive_vars_and_offsets[i, "offset_value"],
-                            data=data,
-                            all_na_drop_rows = all_na_drop_rows,
-	                        kcde_control=kcde_control)
+            crossval_results <- lapply(seq_len(nrow(predictive_vars_and_offsets)),
+                function(i) {
+                    descriptor_updated_model <- update_vars_and_offsets(
+                        prev_vars_and_offsets = current_model_vars_and_offsets,
+                        update_var_name = predictive_vars_and_offsets[i, "var_name"],
+                        update_offset_value = predictive_vars_and_offsets[i, "offset_value"],
+                        update_offset_type = predictive_vars_and_offsets[i, "offset_type"])
                     
-	                return(potential_step_result)
+                    model_i_previously_evaluated <- any(sapply(
+                            all_evaluated_model_descriptors,
+                            function(descriptor) {
+                                identical(descriptor_updated_model, descriptor)
+                            }
+                        ))
+                    
+                    if(!model_i_previously_evaluated && any(descriptor_updated_model$offset_type == "lag")) {
+                        potential_step_result <- 
+                            est_kcde_params_stepwise_crossval_one_potential_step(
+                                prev_vars_and_offsets=current_model_vars_and_offsets,
+                                prev_theta=theta_hat,
+                                prev_phi=phi_hat,
+                                update_var_name=predictive_vars_and_offsets[i, "var_name"],
+                                update_lag_value=predictive_vars_and_offsets[i, "offset_value"],
+                                data=data,
+                                all_na_drop_rows = all_na_drop_rows,
+                                kcde_control=kcde_control)
+                        
+                        return(potential_step_result)
 #	               return(list(potential_step_result)) # put results in a list so that combine="c" is useful
-	            } else {
-	            	return(NULL) # represents a model that has been previously evaluated or doesn't include any predictive variables
-	            }
-	        }
-		) # This parenthesis is used only when foreach is not used above
+                    } else {
+                        return(NULL) # represents a model that has been previously evaluated or doesn't include any predictive variables
+                    }
+                }
+            ) # This parenthesis is used only when foreach is not used above
+            
+            ## drop elements corresponding to previously explored models or models without any predictive variables
+            non_null_components <- sapply(crossval_results,
+                function(component) { !is.null(component) }
+            )
+            crossval_results <- crossval_results[non_null_components]
+            
+            all_evaluated_models <- c(all_evaluated_models, crossval_results)
+            all_evaluated_model_descriptors <-
+                c(all_evaluated_model_descriptors,
+                    lapply(crossval_results, function(component) {
+                            component$vars_and_offsets
+                        }))
+            
+            if(length(crossval_results) == 0L) {
+                ## all models were a null model or a model that was previously evaluated
+                ## stop search
+                break
+            }
+            
+            ## pull out loss achieved by each model, find the best value
+            loss_achieved <- sapply(crossval_results, function(component) {
+                    component$loss
+                })
+            optimal_loss_ind <- which.min(loss_achieved)
+            
+#        print("loss achieved is:")
+#        print(loss_achieved)
+#        print("\n")
+            
+            ## either update the model and keep going or stop the search
+            if(loss_achieved[optimal_loss_ind] < crossval_prediction_loss) {
+                ## found a model improvement -- update and continue
+                selected_var_lag_ind <- optimal_loss_ind
+                crossval_prediction_loss <- loss_achieved[selected_var_lag_ind]
+                current_model_vars_and_offsets <-
+                    crossval_results[[selected_var_lag_ind]]$vars_and_offsets
+                theta_hat <- crossval_results[[selected_var_lag_ind]]$theta
+                phi_hat <- crossval_results[[selected_var_lag_ind]]$phi
+            } else {
+                ## could not find a model improvement -- stop search
+                break
+            }
+        }
+    } else if(identical(kcde_control$variable_selection_method, "all_included")) {
+        descriptor_updated_model <- update_vars_and_offsets(
+            prev_vars_and_offsets = current_model_vars_and_offsets,
+            update_var_name = predictive_vars_and_offsets[, "var_name"],
+            update_offset_value = predictive_vars_and_offsets[, "offset_value"],
+            update_offset_type = predictive_vars_and_offsets[, "offset_type"])
         
-        ## drop elements corresponding to previously explored models or models without any predictive variables
-        non_null_components <- sapply(crossval_results,
-        	function(component) { !is.null(component) }
-        )
-        crossval_results <- crossval_results[non_null_components]
+        crossval_results <- 
+            list(est_kcde_params_stepwise_crossval_one_potential_step(
+                prev_vars_and_offsets=current_model_vars_and_offsets,
+                prev_theta=theta_hat,
+                prev_phi=phi_hat,
+                update_var_name=predictive_vars_and_offsets[, "var_name"],
+                update_lag_value=predictive_vars_and_offsets[, "offset_value"],
+                data=data,
+                all_na_drop_rows = all_na_drop_rows,
+                kcde_control=kcde_control))
         
         all_evaluated_models <- c(all_evaluated_models, crossval_results)
         all_evaluated_model_descriptors <-
             c(all_evaluated_model_descriptors,
                 lapply(crossval_results, function(component) {
-                    component$vars_and_offsets
-                }))
+                        component$vars_and_offsets
+                    }))
         
-        if(length(crossval_results) == 0L) {
-            ## all models were a null model or a model that was previously evaluated
-            ## stop search
-            break
-        }
-        
-        ## pull out loss achieved by each model, find the best value
-        loss_achieved <- sapply(crossval_results, function(component) {
-            component$loss
-        })
-        optimal_loss_ind <- which.min(loss_achieved)
-       
-#        print("loss achieved is:")
-#        print(loss_achieved)
-#        print("\n")
-        
-        ## either update the model and keep going or stop the search
-        if(loss_achieved[optimal_loss_ind] < crossval_prediction_loss) {
-            ## found a model improvement -- update and continue
-            selected_var_lag_ind <- optimal_loss_ind
-            crossval_prediction_loss <- loss_achieved[selected_var_lag_ind]
-			current_model_vars_and_offsets <-
-				crossval_results[[selected_var_lag_ind]]$vars_and_offsets
-            theta_hat <- crossval_results[[selected_var_lag_ind]]$theta
-            phi_hat <- crossval_results[[selected_var_lag_ind]]$phi
-        } else {
-            ## could not find a model improvement -- stop search
-            break
-        }
+        current_model_vars_and_offsets <-
+            crossval_results[[1]]$vars_and_offsets
+        theta_hat <- crossval_results[[1]]$theta
+        phi_hat <- crossval_results[[1]]$phi
+    } else {
+        stop("Invalid variable selection method")
     }
-
+    
     return(list(vars_and_offsets=current_model_vars_and_offsets,
         theta_hat=theta_hat,
         phi_hat=phi_hat,
@@ -411,10 +444,16 @@ kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
         function(t_pred) {
             ## get training indices -- those indices not within
             ## t_pred +/- kcde_control$crossval_buffer
-            pred_time <- cross_validation_examples[t_pred, kcde_control$time_name]
             t_train <- seq_len(nrow(cross_validation_examples))
-            t_train_near_t_pred <- 
-                abs(cross_validation_examples[, kcde_control$time_name] - pred_time) <= kcde_control$crossval_buffer
+            if(is.null(kcde_control$time_name)) {
+                ## If no time variable, we just leave out index t_pred +/- as.integer(kcde_control$crossval_buffer)
+                t_train_near_t_pred <- abs(t_train - t_pred) <= as.integer(kcde_control$crossval_buffer)
+            } else {
+                ## If there is a time variable, we compute indices to leave out based on that
+                pred_time <- cross_validation_examples[t_pred, kcde_control$time_name]
+                t_train_near_t_pred <- 
+                    abs(cross_validation_examples[, kcde_control$time_name] - pred_time) <= kcde_control$crossval_buffer
+            }
             t_train <- t_train[! t_train_near_t_pred]
             
             ## calculate kernel weights and centers for prediction at
@@ -472,11 +511,11 @@ kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
             return(sum(crossval_loss_by_prediction_target))
         })
     
-    cat(combined_params_vector)
-    cat("\n")
-    cat(sum(crossval_loss_by_time_ind))
-    cat("\n")
-    cat("\n")
+#    cat(combined_params_vector)
+#    cat("\n")
+#    cat(sum(crossval_loss_by_time_ind))
+#    cat("\n")
+#    cat("\n")
     
     if(any(is.na(crossval_loss_by_time_ind))) {
         ## parameters resulted in numerical instability?

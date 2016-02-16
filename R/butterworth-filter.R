@@ -63,13 +63,13 @@ update_filter_params_from_vectorized_butterworth_filter <- function(phi_est_vect
 compute_filter_args_butterworth_filter <- function(phi, x) {
     
     ## Obtain Butterworth filter coefficients
-    ## If W is too small, we can get numerical instability in the filtering.
-    ## Check for "too small" values and manually set filter coefficients to do
-    ## "no filtering".  The cutoff for W was determined experimentally, and
-    ## corresponds roughly to the value at which MA coefficients go below
-    ## machine epsilon.  This seems to prevent some issues I was running into
-    ## with filtered values exploding.
-    if(phi$W < 0.05) {
+    ## If W is too small or too large, we can get numerical instability in the filtering.
+    ## Check for "extreme" values and manually set filter coefficients in those cases.
+    ## For W too extreme, we do "no filtering".  The cutoffs for W were determined experimentally.
+    ## 0.05 corresponds roughly to the value at which MA coefficients go below machine epsilon.
+    ## 0.95 corresponds roughly to the value at which numerical instability shows up in the
+    ##  national flu data set.
+    if(phi$W < 0.05 || phi$W > 0.95) {
         filt <- c(1, rep(0, phi$n - 1))
         class(filt) <- "Ma"
     } else {
