@@ -27,6 +27,7 @@ kcde_predict <- function(kcde_fit,
         prediction_type = "distribution",
         n,
         p,
+        q,
         prediction_test_lead_obs,
         log = FALSE) {
     ## get training and prediction examples
@@ -77,6 +78,7 @@ kcde_predict <- function(kcde_fit,
             prediction_type = prediction_type,
             n = n,
             p = p,
+            q = q,
             log = log))
 }
 
@@ -109,6 +111,7 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
     prediction_type="distribution",
     n,
     p,
+    q,
     log = FALSE) {
     
     if(identical(prediction_type, "centers-and-weights")) {
@@ -147,12 +150,20 @@ kcde_predict_given_lagged_obs <- function(train_lagged_obs,
             kcde_fit = kcde_fit))
     } else if(identical(prediction_type, "quantile")) {
         return(kcde_quantile_predict_given_lagged_lead_obs(
-            p = p,
-            n = n,
-            train_lagged_obs = train_lagged_obs,
-            train_lead_obs = train_lead_obs,
-            prediction_lagged_obs = prediction_lagged_obs,
-            kcde_fit = kcde_fit))
+                p = p,
+                n = n,
+                train_lagged_obs = train_lagged_obs,
+                train_lead_obs = train_lead_obs,
+                prediction_lagged_obs = prediction_lagged_obs,
+                kcde_fit = kcde_fit))
+    } else if(identical(prediction_type, "prob")) {
+        return(kcde_prob_predict_given_lagged_lead_obs(
+                q = q,
+                n = n,
+                train_lagged_obs = train_lagged_obs,
+                train_lead_obs = train_lead_obs,
+                prediction_lagged_obs = prediction_lagged_obs,
+                kcde_fit = kcde_fit))
     } else {
         stop("Invalid prediction type.")
     }
@@ -404,4 +415,50 @@ kcde_quantile_predict_given_lagged_lead_obs <- function(
         kcde_fit = kcde_fit)
     
     return(apply(predictive_sample, 2, quantile, probs = p))
+}
+
+#' Compute the conditional (predictive) probability that the predictive target variables
+#' are all less than or equal to the corresponding elements of the rows of q.
+#' 
+#' @param p vector of probabilities which to compute quantiles
+#' @param n sample size for sample from predictive distribution used in
+#'     approximating quantiles
+#' @param train_lagged_obs is a matrix (with column names) containing the
+#'     lagged observation vector computed from the training data.  Each row
+#'     corresponds to a time point.  Each column is a (lagged) variable.
+#' @param train_lead_obs is a vector with length = nrow(train_lagged_obs) with
+#'     the value of the prediction target variable corresponding to each row in
+#'     the train_lagged_obs matrix.
+#' @param prediction_lagged_obs is a matrix (with column names) containing the
+#'     lagged observation vector computed from the prediction data.  There is
+#'     only one row, representing one time point.  Each column is a (lagged)
+#'     variable.
+#' @param kcde_fit is an object representing a fitted kcde model
+#' 
+#' @return a vector of probabilities
+kcde_prob_predict_given_lagged_lead_obs <- function(
+    q,
+    n,
+    train_lagged_obs,
+    train_lead_obs,
+    prediction_lagged_obs,
+    kcde_fit) {
+    
+    predictive_sample <- kcde_sample_predict_given_lagged_lead_obs(
+        n = n,
+        train_lagged_obs = train_lagged_obs,
+        train_lead_obs = train_lead_obs,
+        prediction_lagged_obs = prediction_lagged_obs,
+        kcde_fit = kcde_fit)
+    
+    if(!is.matrix(q)) {
+        q <- as.matrix(q)
+    }
+    
+    return(apply(q, 1, function(q_row) {
+        inds <- apply(predictive_sample, 1, function(sample_row) {
+            return(all(sample_row < q_row))
+        })
+        return(sum(inds) / nrow(predictive_sample))
+    }))
 }

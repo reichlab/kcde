@@ -75,6 +75,43 @@ initialize_theta <- function(prev_theta,
 }
 
 
+#' Get vectors of lower and upper bounds for theta parameters to be used in
+#' calls to optim.
+#' 
+#' @param theta list of parameters theta that are being estimated
+#' @param kcde_control list of control parameters for kcde
+#' 
+#' @return list with two components: lower and upper, giving vectors
+#'   with lower and upper bounds for possible parameter values
+#'   Initialize parameter values.
+get_theta_optim_bounds <- function(theta,
+    kcde_control) {
+    lower <- NULL
+    upper <- NULL
+    
+    for(ind in seq_along(kcde_control$kernel_components)) {
+        ## parameters that are being estimated
+        if(!is.null(theta[[ind]])) {
+            temp <- do.call(
+                kcde_control$kernel_components[[ind]]$
+                    get_theta_optim_bounds_fn,
+                c(list(theta = theta[[ind]]),
+                    kcde_control$kernel_components[[ind]]$
+                        get_theta_optim_bounds_args)
+            )
+            
+            lower <- c(lower, temp$lower)
+            upper <- c(upper, temp$upper)
+        }
+    }
+    
+    return(list(
+        lower = lower,
+        upper = upper
+    ))
+}
+
+
 #' Extract a vector of parameter values that are to be estimated from theta,
 #' on the estimation scale.
 #' 

@@ -101,6 +101,8 @@ pdtmvn_kernel <- function(x,
         inds_x_vars_in_orig_vars <- which(x_names %in% reduced_x_names)
         continuous_x_names <- x_names[continuous_var_col_inds]
         reduced_continuous_var_col_inds <- which(reduced_x_names %in% continuous_x_names)
+        discrete_x_names <- x_names[discrete_var_col_inds]
+        reduced_discrete_var_col_inds <- which(reduced_x_names %in% discrete_x_names)
         
         return(pdtmvn::dpdtmvn(x = center[, x_names[inds_x_vars_in_orig_vars], drop = FALSE],
                 mean = x[x_names[inds_x_vars_in_orig_vars]],
@@ -112,7 +114,7 @@ pdtmvn_kernel <- function(x,
                 lower = lower[names(x)],
                 upper = upper[names(x)],
                 continuous_vars = reduced_continuous_var_col_inds,
-#                discrete_vars = discrete_var_col_inds,
+                discrete_vars = reduced_discrete_var_col_inds,
                 discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
                 log = log,
                 validate_level = 1L))
@@ -214,7 +216,10 @@ rpdtmvn_kernel <- function(n,
 #' 
 #' @return Named list with four components: bw, bw_continuous,
 #'     conditional_bw_discrete, and conditional_center_discrete_offset_multiplier
-compute_pdtmvn_kernel_bw_params_from_bw_eigen <- function(bw_evecs,
+compute_pdtmvn_kernel_bw_params_from_bw_eigen <- function(
+    multilogit_bw_evecs,
+    bw_evecs,
+    log_bw_evals,
     bw_evals,
     continuous_var_col_inds,
     discrete_var_col_inds) {
@@ -222,9 +227,10 @@ compute_pdtmvn_kernel_bw_params_from_bw_eigen <- function(bw_evecs,
     
     bw_params <- c(
 		list(bw = bw,
+            multilogit_bw_evecs = multilogit_bw_evecs,
 			bw_evecs = bw_evecs,
-			bw_evals = bw_evals,
-			log_bw_evals = log(bw_evals)),
+            log_bw_evals = log_bw_evals,
+			bw_evals = bw_evals),
         pdtmvn::compute_sigma_subcomponents(sigma = bw,
             continuous_vars = continuous_var_col_inds,
             discrete_vars = discrete_var_col_inds,
@@ -277,6 +283,44 @@ compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp <- function(bw_chol_decomp,
     return(bw_params)
 }
 
+#' Get lower and upper bounds for the theta parameters being estimated
+#' in the pdtmvn_kernel
+#' 
+#' @param theta_list parameters to pdtmvn kernel in list format
+#' @param ... mop up arguments
+#' 
+#' @return list with two components: lower and upper, numeric vectors
+get_theta_optim_bounds_pdtmvn_kernel <- function(theta_list, ...) {
+    if(identical(theta_list$parameterization, "bw-diagonalized-est-eigenvalues")) {
+        return(list(
+                lower = -50,
+                upper = Inf
+            ))
+    } else if(identical(theta_list$parameterization, "bw-diagonalized")) {
+        return(list(
+                lower = -50,
+                upper = Inf
+            ))
+    } else if(identical(theta_list$parameterization, "bw-chol-decomp")) {
+        lower_triang_inds <- as.matrix(expand.grid(
+                seq_len(ncol(theta_list$bw_chol_decomp)),
+                seq_len(ncol(theta_list$bw_chol_decomp))
+            ))
+        lower_triang_inds <- lower_triang_inds[lower_triang_inds[, 1] >= lower_triang_inds[, 2], ]
+        lower_bounds_matrix <-
+            matrix(-50, nrow = nrow(theta_list$bw), ncol = ncol(theta_list$bw))
+        diag(lower_bounds_matrix) <- 10^{-6}
+        upper_bounds_matrix <-
+            matrix(Inf, nrow = nrow(theta_list$bw), ncol = ncol(theta_list$bw))
+        return(list(
+                lower = lower_bounds_matrix[lower_triang_inds],
+                upper = upper_bounds_matrix[lower_triang_inds]
+            ))
+    } else {
+        stop("Invalid parameterization for pdtmvn kernel function")
+    }
+}
+
 #' A function to vectorize the parameters of the pdtmvn_kernel and convert
 #' to estimation scale.
 #' 
@@ -288,9 +332,11 @@ compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp <- function(bw_chol_decomp,
 #' @return vector containing parameters that are estimated on a scale
 #'     suitable for numerical optimization
 vectorize_params_pdtmvn_kernel <- function(theta_list, ...) {
-	if(identical(theta_list$parameterization, "bw-diagonalized-est-eigenvalues")) {
-		return(theta_list$log_bw_evals)
-	} else if(identical(theta_list$parameterization, "bw-chol-decomp")) {
+    if(identical(theta_list$parameterization, "bw-diagonalized-est-eigenvalues")) {
+        return(theta_list$log_bw_evals)
+    } else if(identical(theta_list$parameterization, "bw-diagonalized")) {
+        return(c(theta_list$log_bw_evals, theta_list$multilogit_bw_evecs))
+    } else if(identical(theta_list$parameterization, "bw-chol-decomp")) {
         return(theta_list$bw_chol_decomp_vec)
     } else {
 		stop("Invalid parameterization for pdtmvn kernel function")
@@ -316,17 +362,42 @@ vectorize_params_pdtmvn_kernel <- function(theta_list, ...) {
 update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vector, theta) {
 	if(identical(theta$parameterization, "bw-diagonalized-est-eigenvalues")) {
 		num_bw_evals <- ncol(theta$bw_evecs)
-		temp <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(bw_evecs = theta$bw_evecs,
+		temp <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(
+            multilogit_bw_evecs = theta$multilogit_bw_evecs,
+            bw_evecs = theta$bw_evecs,
+            log_bw_evals = theta_est_vector[seq_len(num_bw_evals)],
 			bw_evals = exp(theta_est_vector[seq_len(num_bw_evals)]),
 			theta$continuous_var_col_inds,
 			theta$discrete_var_col_inds)
 		
 		theta[names(temp)] <- temp
-
+        
 		return(list(
 			theta = theta,
 			num_theta_vals_used = num_bw_evals
 		))
+    } else if(identical(theta$parameterization, "bw-diagonalized")) {
+        num_bw_evals <- ncol(theta$bw_evecs)
+        num_bw_evec_params <- ncol(theta$bw_evecs) * (ncol(theta$bw_evecs) - 1)
+        multilogit_bw_evecs <- theta_est_vector[num_bw_evals + seq_len(num_bw_evec_params)]
+        updated_evecs <- compute_bw_evecs_from_multilogit_bw_evecs(
+            multilogit_bw_evecs,
+            ncol(theta$bw_evecs)
+        )
+        temp <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(
+            multilogit_bw_evecs = multilogit_bw_evecs,
+            bw_evecs = theta$bw_evecs,
+            log_bw_evals = theta_est_vector[seq_len(num_bw_evals)],
+            bw_evals = exp(theta_est_vector[seq_len(num_bw_evals)]),
+            theta$continuous_var_col_inds,
+            theta$discrete_var_col_inds)
+        
+        theta[names(temp)] <- temp
+        
+        return(list(
+                theta = theta,
+                num_theta_vals_used = num_bw_evals + num_bw_evec_params
+            ))
     } else if(identical(theta$parameterization, "bw-chol-decomp")) {
         ## Obtain vector of parameters for Cholesky decomposition
         num_bw_chol_decomp_vec_entries <-
@@ -388,7 +459,7 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
 	
     new_theta <- prev_theta
     
-	if(identical(new_theta$parameterization, "bw-diagonalized-est-eigenvalues")) {
+	if(new_theta$parameterization %in% c("bw-diagonalized", "bw-diagonalized-est-eigenvalues")) {
 		continuous_discrete_var_col_inds <-
 			get_col_inds_continuous_discrete_vars_used(colnames(x),
                 new_theta$continuous_vars,
@@ -406,7 +477,10 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
         }
 		sample_cov_eigen <- eigen(sample_cov_hat)
 		
-        bw_params <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(bw_evecs = sample_cov_eigen$vectors,
+        bw_params <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(
+            multilogit_bw_evecs = compute_multilogit_bw_evecs_from_bw_evecs(sample_cov_eigen$vectors),
+            bw_evecs = sample_cov_eigen$vectors,
+            log_bw_evals = log(sample_cov_eigen$values),
 		    bw_evals = sample_cov_eigen$values,
 			continuous_discrete_var_col_inds$continuous_vars,
 			continuous_discrete_var_col_inds$discrete_vars)
@@ -414,7 +488,7 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
         
 		new_theta$continuous_var_col_inds = continuous_discrete_var_col_inds$continuous_vars
         new_theta$discrete_var_col_inds = continuous_discrete_var_col_inds$discrete_vars
-	} else if(identical(new_theta$parameterization, "bw-chol-decomp")) {
+    } else if(identical(new_theta$parameterization, "bw-chol-decomp")) {
         continuous_discrete_var_col_inds <-
             get_col_inds_continuous_discrete_vars_used(colnames(x),
                 new_theta$continuous_vars,

@@ -20,6 +20,17 @@ periodic_kernel <- function(x, center, period, bw, log, ...) {
     }
 }
 
+#' Get lower and upper bounds for the log_bw parameter in the periodic_kernel
+#' 
+#' @param ... mop up arguments
+#' 
+#' @return list with two components: lower and upper, numeric vectors
+get_theta_optim_bounds_periodic_kernel <- function(...) {
+    return(list(
+        lower = -50,
+        upper = Inf
+    ))
+}
 
 #' A function to vectorize the parameters of the pdtmvn_kernel and convert
 #' to estimation scale.

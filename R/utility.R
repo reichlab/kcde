@@ -166,11 +166,21 @@ compute_offset_obs_vecs <- function(data,
 		combined_name <- as.character(vars_and_offsets[new_var_ind, "combined_name"])
 		
         if(identical(offset_type, "lag")) {
-            result_inds <- seq(from = 1 + offset_val, to = nrow(result))
-            data_inds <- seq(from = 1, to = nrow(result) - offset_val)
+            if(offset_val < nrow(result)) {
+                result_inds <- seq(from = 1 + offset_val, to = nrow(result))
+                data_inds <- seq(from = 1, to = nrow(result) - offset_val)
+            } else {
+                result_inds <- c()
+                data_inds <- c()
+            }
         } else { # assumed only alternative is "horizon"
-            result_inds <- seq(from = 1, to = nrow(result) - offset_val)
-            data_inds <- seq(from = 1 + offset_val, to = nrow(result))
+            if(offset_val < nrow(result)) {
+                result_inds <- seq(from = 1, to = nrow(result) - offset_val)
+                data_inds <- seq(from = 1 + offset_val, to = nrow(result))
+            } else {
+                result_inds <- c()
+                data_inds <- c()
+            }
         }
 		
 		result[result_inds, combined_name] <- filtered_data[data_inds, var_name]

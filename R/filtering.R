@@ -135,6 +135,40 @@ update_phi_from_vectorized_phi_est <- function(phi_est_vector,
         next_param_ind = phi_vector_component_start_ind))
 }
 
+#' Get vectors of lower and upper bounds for phi parameters to be used in
+#' calls to optim.
+#' 
+#' @param phi list of filter parameters phi that are being estimated
+#' @param filter_control control parameters for filtering
+#' 
+#' @return list with two components: lower and upper, giving vectors
+#'   with lower and upper bounds for possible parameter values
+get_phi_optim_bounds <- function(phi,
+    filter_control) {
+    
+    lower <- NULL
+    upper <- NULL
+    
+    for(ind in seq_along(filter_control)) {
+        ## parameters that are being estimated
+        if(!is.null(phi[[ind]])) {
+            temp <- do.call(
+                filter_control[[ind]]$
+                    get_phi_optim_bounds_fn,
+                c(list(phi = phi[[ind]]),
+                    filter_control[[ind]]$
+                        get_phi_optim_bounds_args)
+            )
+            
+            lower <- c(lower, temp$lower)
+            upper <- c(upper, temp$upper)
+        }
+    }
+    
+    return(list(upper = upper,
+        lower = lower))
+}
+
 
 #' Compute filtered values
 #' 

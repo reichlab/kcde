@@ -336,6 +336,10 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
         kcde_control = kcde_control)
     
     ## optimize parameter values
+    phi_optim_bounds <- get_phi_optim_bounds(phi = phi_init,
+        filter_control = kcde_control$filter_control)
+    theta_optim_bounds <- get_theta_optim_bounds(theta = theta_init,
+        kcde_control = kcde_control)
     optim_result <- optim(par=c(phi_est_init, theta_est_init),
         fn=kcde_crossval_estimate_parameter_loss,
 #        gr = gradient_kcde_crossval_estimate_parameter_loss,
@@ -349,7 +353,9 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
         additional_rows_to_drop = all_na_drop_rows,
         kcde_control=kcde_control,
         method="L-BFGS-B",
-        lower=-50,
+        lower = c(phi_optim_bounds$lower, theta_optim_bounds$lower),
+        upper = c(phi_optim_bounds$upper, theta_optim_bounds$upper),
+        #        lower=-50,
         #		upper=10000,
         #control=list(),
         hessian=FALSE)
@@ -511,18 +517,35 @@ kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
             return(sum(crossval_loss_by_prediction_target))
         })
     
-#    cat(combined_params_vector)
-#    cat("\n")
-#    cat(sum(crossval_loss_by_time_ind))
-#    cat("\n")
-#    cat("\n")
+    cat(combined_params_vector)
+    cat("\n")
+    cat(sum(crossval_loss_by_time_ind))
+    cat("\n")
+    cat("\n")
+#    if(any(is.na(crossval_loss_by_time_ind) | is.infinite(crossval_loss_by_time_ind)) ||
+#        is.infinite(sum(crossval_loss_by_time_ind))) {
+#        browser()
+#    }
     
-    if(any(is.na(crossval_loss_by_time_ind))) {
-        ## parameters resulted in numerical instability?
-        stop("NAs in cross validated estimate of loss")
-        ## old solution was to return largest non-infinite value;
-        ## results in rejection of these parameter values
-        return(.Machine$double.xmax)
+    ## parameters resulted in numerical instability
+    ## If bw-chol parameterization was used, this is probably due to
+    ## numerically 0 bandwidths.  Could have any of three effects:
+    ##  - zero values, if the numerator and denominator in calculating
+    ##    conditional kernel values were both so large that their difference is 0
+    ##  - NA values or Inf values.
+    ## In any of these cases, we return a large value;
+    ## this results in rejection of these parameter values
+    crossval_loss_eq_0 <- sapply(
+        crossval_loss_by_time_ind,
+        function(cvli) {
+            isTRUE(all.equal(cvli, 0))
+        }
+    )
+    if(any(is.na(crossval_loss_by_time_ind) |
+            is.infinite(crossval_loss_by_time_ind) |
+            crossval_loss_eq_0)) {
+        message("NAs or Infs in cross validated estimate of loss")
+        return(10^10)
     } else {
         return(sum(crossval_loss_by_time_ind))
     }
