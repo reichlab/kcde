@@ -23,6 +23,8 @@
 kcde <- function(X_names,
         y_names,
         data,
+        init_theta_vector,
+        init_phi_vector,
         kcde_control) {
     ## get/validate kcde_control argument
     if(missing(kcde_control)) {
@@ -33,7 +35,10 @@ kcde <- function(X_names,
     }
     
     ## estimate lags and kernel parameters via cross-validation
-    param_estimates <- est_kcde_params_stepwise_crossval(data, kcde_control)
+    param_estimates <- est_kcde_params_stepwise_crossval(data=data,
+        kcde_control=kcde_control,
+        init_theta_vector=init_theta_vector,
+        init_phi_vector=init_phi_vector)
     
     return(list(kcde_control=kcde_control,
 		vars_and_offsets=param_estimates$vars_and_offsets,
@@ -53,7 +58,10 @@ kcde <- function(X_names,
 #' @return a list with two components: vars_and_offsets is the estimated "optimal" lags
 #'     to use for each variable, and theta_hat is the estimated "optimal"
 #'     kernel parameters to use for each combination of variable and lag
-est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
+est_kcde_params_stepwise_crossval <- function(data,
+        kcde_control,
+        init_theta_vector,
+        init_phi_vector) {
     all_vars_and_offsets <- plyr::rbind.fill(lapply(kcde_control$kernel_components,
 		function(kernel_component) {
 			kernel_component$vars_and_offsets
@@ -195,6 +203,8 @@ est_kcde_params_stepwise_crossval <- function(data, kcde_control) {
                 prev_vars_and_offsets=current_model_vars_and_offsets,
                 prev_theta=theta_hat,
                 prev_phi=phi_hat,
+                init_theta_vector=init_theta_vector,
+                init_phi_vector=init_phi_vector,
                 update_var_name=predictive_vars_and_offsets[, "var_name"],
                 update_lag_value=predictive_vars_and_offsets[, "offset_value"],
                 data=data,
@@ -250,6 +260,8 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
 		prev_vars_and_offsets,
     	prev_theta,
         prev_phi,
+        init_theta_vector,
+        init_phi_vector,
     	update_var_name,
     	update_lag_value,
     	data,
@@ -271,8 +283,12 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
         data = data,
         kcde_control = kcde_control)
     
-    phi_est_init <- extract_vectorized_phi_est_from_phi(phi = phi_init,
-        filter_control = kcde_control$filter_control)
+    if(missing(init_phi_vector) || is.null(init_phi_vector)) {
+        phi_est_init <- extract_vectorized_phi_est_from_phi(phi = phi_init,
+            filter_control = kcde_control$filter_control)
+    } else {
+        phi_est_init <- init_phi_vector
+    }
     
     ## create data frame of "examples" -- lagged observation vectors and
     ## corresponding prediction targets
@@ -331,9 +347,13 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
             kcde_control = kcde_control)
     }
     
-    theta_est_init <- extract_vectorized_theta_est_from_theta(theta = theta_init,
-        vars_and_offsets = updated_vars_and_offsets,
-        kcde_control = kcde_control)
+    if(missing(init_theta_vector) || is.null(init_theta_vector)) {
+        theta_est_init <- extract_vectorized_theta_est_from_theta(theta = theta_init,
+            vars_and_offsets = updated_vars_and_offsets,
+            kcde_control = kcde_control)
+    } else {
+        theta_est_init <- init_theta_vector
+    }
     
     ## optimize parameter values
     phi_optim_bounds <- get_phi_optim_bounds(phi = phi_init,
