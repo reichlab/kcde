@@ -88,10 +88,12 @@ update_theta_from_vectorized_theta_est_periodic_kernel <- function(theta_est_vec
 #' @return list with initial values of parameters to the periodic_kernel
 initialize_params_periodic_kernel <- function(x,
     prev_theta,
-	...) {
+    total_num_vars,
+    sample_size,
+    ...) {
     new_theta <- prev_theta
-    new_theta$bw <- 0.1
-    new_theta$log_bw <- log(0.1)
+    new_theta$bw <- sample_size^{-2/(total_num_vars + 4)} * sqrt(0.5)
+    new_theta$log_bw <- log(new_theta$bw)
     
     return(new_theta)
 }

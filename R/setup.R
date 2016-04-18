@@ -63,6 +63,7 @@ create_kcde_control <- function(X_names,
         loss_args,
         variable_selection_method = "stepwise",
         par_packages = NULL,
+        par_cores = 1L,
         na.action = "na.omit") {
     kcde_control <- list()
     
@@ -84,6 +85,7 @@ create_kcde_control <- function(X_names,
     kcde_control$variable_selection_method <- variable_selection_method
     
     kcde_control$par_packages <- par_packages
+    kcde_control$par_cores <- par_cores
     
     kcde_control$na.action <- na.action
     

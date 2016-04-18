@@ -111,7 +111,7 @@ SEXP logspace_sum_matrix_rows_C(SEXP Xp, SEXP N_rowp, SEXP N_colp) {
 	for(j = 1; j < n_col; j++) {
 		for(i = 0; i < n_row; i++) {
 			if(!(*(dblptr + i) == R_NegInf && *(X + i + j*n_row) == R_NegInf))
-				*(dblptr + i) = logspace_add(*(dblptr + i), *(X + i + j*n_row));
+				*(dblptr + i) = logspace_add_safe(*(dblptr + i), *(X + i + j*n_row));
 		}
 	}
 

@@ -455,6 +455,8 @@ update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vecto
 #' @return list with initial values of parameters to the pdtmvn_kernel
 initialize_params_pdtmvn_kernel <- function(prev_theta,
 	x,
+    total_num_vars,
+    sample_size,
 	...) {
 	
     new_theta <- prev_theta
@@ -475,13 +477,14 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
             
             sample_cov_hat <- matrix(var(x))
         }
-		sample_cov_eigen <- eigen(sample_cov_hat)
+        init_bw <- sample_size^{-2/(total_num_vars + 4)} * sample_cov_hat
+		init_bw_eigen <- eigen(init_bw)
 		
         bw_params <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(
-            multilogit_bw_evecs = compute_multilogit_bw_evecs_from_bw_evecs(sample_cov_eigen$vectors),
-            bw_evecs = sample_cov_eigen$vectors,
-            log_bw_evals = log(sample_cov_eigen$values),
-		    bw_evals = sample_cov_eigen$values,
+            multilogit_bw_evecs = compute_multilogit_bw_evecs_from_bw_evecs(init_bw_eigen$vectors),
+            bw_evecs = init_bw_eigen$vectors,
+            log_bw_evals = log(init_bw_eigen$values),
+		    bw_evals = init_bw_eigen$values,
 			continuous_discrete_var_col_inds$continuous_vars,
 			continuous_discrete_var_col_inds$discrete_vars)
 		new_theta[names(bw_params)] <- bw_params
@@ -506,10 +509,11 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
         }
         ## Get Cholesky decomposition.  R returns upper triangular portion,
         ## but our parameterization works with lower triangular portion, so transpose.
-        sample_cov_chol <- t(chol(sample_cov_hat))
+        init_bw <- sample_size^{-2/(total_num_vars + 4)} * sample_cov_hat
+        init_bw_chol <- t(chol(init_bw))
         
         ## Set Cholesky decomposition and vectorized Cholesky decomposition in theta
-        new_theta$bw_chol_decomp <- sample_cov_chol
+        new_theta$bw_chol_decomp <- init_bw_chol
         
         lower_triangular_inds <- as.matrix(expand.grid(
                 seq_len(ncol(new_theta$bw_chol_decomp)),

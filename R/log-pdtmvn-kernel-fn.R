@@ -204,8 +204,24 @@ update_theta_from_vectorized_theta_est_log_pdtmvn_kernel <- function(theta_est_v
 #' @return list with initial values of parameters to the pdtmvn_kernel
 initialize_params_log_pdtmvn_kernel <- function(prev_theta,
 	x,
+    total_num_vars,
+    sample_size,
 	...) {
 	
     return(initialize_params_pdtmvn_kernel(prev_theta = prev_theta,
-    	x = x))
+    	x = log(x),
+        total_num_vars = total_num_vars,
+        sample_size = sample_size))
+}
+
+
+#' Get lower and upper bounds for the theta parameters being estimated
+#' in the pdtmvn_kernel
+#' 
+#' @param theta_list parameters to pdtmvn kernel in list format
+#' @param ... mop up arguments
+#' 
+#' @return list with two components: lower and upper, numeric vectors
+get_theta_optim_bounds_log_pdtmvn_kernel <- function(theta_list, ...) {
+    return(get_theta_optim_bounds_pdtmvn_kernel(theta_list))
 }

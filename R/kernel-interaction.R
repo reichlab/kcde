@@ -44,6 +44,7 @@ initialize_theta <- function(prev_theta,
                     
                     fn_args <- kcde_control$kernel_components[[ind]]$
                         initialize_kernel_params_args
+                    fn_args$total_num_vars <- nrow(updated_vars_and_offsets)
                     fn_args$update_var_name <- update_var_name
                     fn_args$update_offset_value <- update_offset_value
                     fn_args$update_offset_type <- update_offset_type
