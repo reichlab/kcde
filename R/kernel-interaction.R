@@ -200,16 +200,17 @@ compute_kernel_values <- function(train_obs,
     kernel_components,
     theta,
     log = TRUE) {
-	if(!(identical(nrow(prediction_obs), 1L))) {
-		stop("In call to compute_kernel_values, prediction_obs must have exactly 1 row.")
+	if(!(nrow(train_obs) == 1L || nrow(prediction_obs) == 1L)) {
+		stop("In call to compute_kernel_values, either train_obs or prediction_obs must have exactly 1 row.")
 	}
     
     ## create a matrix of log kernel values by component
 	## rows correspond to time points in train_obs, columns to components of
 	## the kernel function
+    result_length <- max(nrow(train_obs), nrow(prediction_obs))
     log_kernel_component_values <- matrix(0,
-        nrow=nrow(train_obs),
-        ncol=length(kernel_components))
+        nrow = result_length,
+        ncol = length(kernel_components))
     
     for(ind in seq_along(kernel_components)) {
 		combined_names_in_component <-
@@ -262,7 +263,7 @@ simulate_values_from_product_kernel <- function(n,
     theta) {
     
     conditioning_obs_missing <- missing(conditioning_obs) || is.null(conditioning_obs) 
-    if(!(conditioning_obs_missing || identical(nrow(conditioning_obs), 1L)) || !(identical(nrow(center), 1L))) {
+    if(!(conditioning_obs_missing || nrow(conditioning_obs) == 1L) || nrow(center) != 1L) {
         stop("In call to simulate_values_from_product_kernel, conditioning_obs and center must have exactly 1 row.")
     }
     

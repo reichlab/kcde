@@ -83,14 +83,23 @@ pdtmvn_kernel <- function(x,
 		upper,
         x_names,
 		log,
+        validate_in_support = TRUE,
+        validate_level = 1L,
         ...) {
-    if(length(dim(x)) > 0) {
-        x_arg_names <- colnames(x)
-        x <- as.vector(as.matrix(x))
-        names(x) <- x_arg_names
+#    if(length(dim(x)) > 0) {
+#        x_arg_names <- colnames(x)
+#        x <- as.vector(as.matrix(x))
+#        names(x) <- x_arg_names
+#    }
+    if(length(dim(center)) == 0) {
+        center_arg_names <- names(center)
+        dim(center) <- c(1, length(center))
+        colnames(center) <- center_arg_names
+    } else if(!is.matrix(center)) {
+        center <- as.matrix(center)
     }
     
-    if(ncol(center) != ncol(bw)) {
+    if(ncol(x) != ncol(bw)) {
         ## evaluating a marginal kernel for a subset of variables
         if(any(c(lower != -Inf, upper != Inf)) && ncol(center) != ncol(bw)) {
             stop("Lower and upper bounds must be -Inf and Inf respectively if evaluating a marginal kernel.")
@@ -104,35 +113,87 @@ pdtmvn_kernel <- function(x,
         discrete_x_names <- x_names[discrete_var_col_inds]
         reduced_discrete_var_col_inds <- which(reduced_x_names %in% discrete_x_names)
         
-        return(pdtmvn::dpdtmvn(x = center[, x_names[inds_x_vars_in_orig_vars], drop = FALSE],
-                mean = x[x_names[inds_x_vars_in_orig_vars]],
+        x_names_for_call <- x_names[inds_x_vars_in_orig_vars]
+        continuous_var_col_inds_for_call <- reduced_continuous_var_col_inds
+        discrete_var_col_inds_for_call <- reduced_discrete_var_col_inds
+        
+#        return(sapply(seq_len(nrow(center)), function(center_row_ind) {
+#                    pdtmvn::dpdtmvn(x = x[, x_names_for_call, drop = FALSE],
+#                        mean = center[center_row_ind, x_names[inds_x_vars_in_orig_vars]],
+#                        sigma = bw[inds_x_vars_in_orig_vars, inds_x_vars_in_orig_vars, drop = FALSE],
+##                sigma_continuous = bw_continuous,
+##                conditional_sigma_discrete = conditional_bw_discrete,
+##                conditional_mean_discrete_offset_multiplier = 
+##                    conditional_center_discrete_offset_multiplier,
+#                        lower = lower[colnames(x)],
+#                        upper = upper[colnames(x)],
+#                        continuous_vars = reduced_continuous_var_col_inds,
+#                        discrete_vars = reduced_discrete_var_col_inds,
+#                        discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
+#                        log = log,
+#                        validate_in_support = validate_in_support,
+#                        validate_level = validate_level)
+#                }))
+    } else {
+        x_names_for_call <- x_names
+        inds_x_vars_in_orig_vars <- seq_len(nrow(bw))
+        continuous_var_col_inds_for_call <- continuous_var_col_inds
+        discrete_var_col_inds_for_call <- discrete_var_col_inds
+#        return(sapply(seq_len(nrow(center)), function(center_row_ind) {
+#            pdtmvn::dpdtmvn(x = x[, x_names, drop = FALSE],
+#                mean = center[center_row_ind, x_names],
+#                sigma = bw,
+#                sigma_continuous = bw_continuous,
+#                conditional_sigma_discrete = conditional_bw_discrete,
+#                conditional_mean_discrete_offset_multiplier = 
+#                    conditional_center_discrete_offset_multiplier,
+#                lower = lower[colnames(x)],
+#                upper = upper[colnames(x)],
+#                continuous_vars = continuous_var_col_inds,
+#                discrete_vars = discrete_var_col_inds,
+#                discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
+#                log = log,
+#                validate_in_support = validate_in_support,
+#                validate_level = validate_level)
+#        }))
+    }
+    
+    if(nrow(center) > 1) {
+        return(sapply(seq_len(nrow(center)), function(center_row_ind) {
+                pdtmvn::dpdtmvn(x = x[, x_names_for_call, drop = FALSE],
+                    mean = center[center_row_ind, x_names[inds_x_vars_in_orig_vars]],
+                    sigma = bw[inds_x_vars_in_orig_vars, inds_x_vars_in_orig_vars, drop = FALSE],
+#                sigma_continuous = bw_continuous,
+#                conditional_sigma_discrete = conditional_bw_discrete,
+#                conditional_mean_discrete_offset_multiplier = 
+#                    conditional_center_discrete_offset_multiplier,
+                    lower = lower[colnames(x)],
+                    upper = upper[colnames(x)],
+                    continuous_vars = continuous_var_col_inds_for_call,
+                    discrete_vars = discrete_var_col_inds_for_call,
+                    discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
+                    log = log,
+                    validate_in_support = validate_in_support,
+                    validate_level = validate_level)
+            }))
+    } else {
+        return(
+            pdtmvn::dpdtmvn(x = x[, x_names_for_call, drop = FALSE],
+                mean = center[1, ],
                 sigma = bw[inds_x_vars_in_orig_vars, inds_x_vars_in_orig_vars, drop = FALSE],
 #                sigma_continuous = bw_continuous,
 #                conditional_sigma_discrete = conditional_bw_discrete,
 #                conditional_mean_discrete_offset_multiplier = 
 #                    conditional_center_discrete_offset_multiplier,
-                lower = lower[names(x)],
-                upper = upper[names(x)],
-                continuous_vars = reduced_continuous_var_col_inds,
-                discrete_vars = reduced_discrete_var_col_inds,
+                lower = lower[colnames(x)],
+                upper = upper[colnames(x)],
+                continuous_vars = continuous_var_col_inds_for_call,
+                discrete_vars = discrete_var_col_inds_for_call,
                 discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
                 log = log,
-                validate_level = 1L))
-    } else {
-        return(pdtmvn::dpdtmvn(x = center[, x_names, drop = FALSE],
-                mean = x[x_names],
-                sigma = bw,
-                sigma_continuous = bw_continuous,
-                conditional_sigma_discrete = conditional_bw_discrete,
-                conditional_mean_discrete_offset_multiplier = 
-                    conditional_center_discrete_offset_multiplier,
-                lower = lower[names(x)],
-                upper = upper[names(x)],
-                continuous_vars = continuous_var_col_inds,
-                discrete_vars = discrete_var_col_inds,
-                discrete_var_range_fns = discrete_var_range_fns[discrete_vars],
-                log = log,
-                validate_level = 1L))
+                validate_in_support = validate_in_support,
+                validate_level = validate_level)
+        )
     }
 }
 
@@ -185,14 +246,25 @@ rpdtmvn_kernel <- function(n,
     upper,
     x_names,
     ...) {
-    if(length(dim(center)) > 0) {
-        center_names <- colnames(center)
-        center <- as.vector(as.matrix(center))
-        names(center) <- center_names
+#    if(length(dim(center)) > 0) {
+#        center_names <- colnames(center)
+#        center <- as.vector(as.matrix(center))
+#        names(center) <- center_names
+#    }
+    if(length(dim(center)) == 0) {
+        center_arg_names <- names(center)
+        dim(center) <- c(1, length(center))
+        colnames(center) <- center_arg_names
+    } else if(!identical(class(center), "matrix")) {
+        center <- as.matrix(center)
+    }
+    
+    if(missing(conditioning_obs)) {
+        conditioning_obs <- NULL
     }
     return(pdtmvn::rpdtmvn(n = n,
             x_fixed = conditioning_obs,
-            mean = t(as.matrix(center))[, x_names],
+            mean = center[, x_names, drop = FALSE],
             sigma = bw,
             lower = lower[x_names],
             upper = upper[x_names],
@@ -306,7 +378,7 @@ get_theta_optim_bounds_pdtmvn_kernel <- function(theta_list, ...) {
                 seq_len(ncol(theta_list$bw_chol_decomp)),
                 seq_len(ncol(theta_list$bw_chol_decomp))
             ))
-        lower_triang_inds <- lower_triang_inds[lower_triang_inds[, 1] >= lower_triang_inds[, 2], ]
+        lower_triang_inds <- lower_triang_inds[lower_triang_inds[, 1] >= lower_triang_inds[, 2], , drop = FALSE]
         lower_bounds_matrix <-
             matrix(-50, nrow = nrow(theta_list$bw), ncol = ncol(theta_list$bw))
         diag(lower_bounds_matrix) <- 10^{-6}
@@ -409,7 +481,7 @@ update_theta_from_vectorized_theta_est_pdtmvn_kernel <- function(theta_est_vecto
                 seq_len(ncol(theta$bw_chol_decomp)),
                 seq_len(ncol(theta$bw_chol_decomp))
         ))
-        update_inds <- update_inds[update_inds[, 1] >= update_inds[, 2], ]
+        update_inds <- update_inds[update_inds[, 1] >= update_inds[, 2], , drop = FALSE]
         theta$bw_chol_decomp[update_inds] <- bw_chol_decomp_vec
         
         ## Enforce lower bound for entries on diagonal:
@@ -478,7 +550,7 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
             sample_cov_hat <- matrix(var(x))
         }
         init_bw <- sample_size^{-2/(total_num_vars + 4)} * sample_cov_hat
-		init_bw_eigen <- eigen(init_bw)
+        init_bw_eigen <- eigen(init_bw)
 		
         bw_params <- compute_pdtmvn_kernel_bw_params_from_bw_eigen(
             multilogit_bw_evecs = compute_multilogit_bw_evecs_from_bw_evecs(init_bw_eigen$vectors),
@@ -520,7 +592,7 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
                 seq_len(ncol(new_theta$bw_chol_decomp))
             ))
         lower_triangular_inds <-
-            lower_triangular_inds[lower_triangular_inds[, 1] >= lower_triangular_inds[, 2], ]
+            lower_triangular_inds[lower_triangular_inds[, 1] >= lower_triangular_inds[, 2], , drop = FALSE]
         
         new_theta$bw_chol_decomp_vec <- new_theta$bw_chol_decomp[lower_triangular_inds]
         

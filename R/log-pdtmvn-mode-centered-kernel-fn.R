@@ -1,12 +1,12 @@
-## pdtmvn kernel function
+## pdtmvn kernel parameterized by mode and variance function
 ## 
-## log_pdtmvn_kernel
-## rlog_pdtmvn_kernel
-## vectorize_params_log_pdtmvn_kernel
-## update_theta_from_vectorized_theta_est_log_pdtmvn_kernel
-## initialize_params_log_pdtmvn_kernel
+## log_pdtmvn_mode_centered_kernel
+## rlog_pdtmvn_mode_centered_kernel
+## vectorize_params_log_pdtmvn_mode_centered_kernel
+## update_theta_from_vectorized_theta_est_log_pdtmvn_mode_centered_kernel
+## initialize_params_log_pdtmvn_mode_centered_kernel
 
-#' Evaluate the kernel function given by the log-pdtmvn distribution.
+#' Evaluate the kernel function given by the log-pdtmvn mode centered distribution.
 #' 
 #' @param a matrix of values at which to evaluate the kernel function, with
 #'     column names specified.  Each row is an observation, each column is an
@@ -38,7 +38,7 @@
 #' 
 #' @return the value of the kernel function given by the pdtmvn distribution
 #'     at x.
-log_pdtmvn_kernel <- function(x,
+log_pdtmvn_mode_centered_kernel <- function(x,
 		center,
 		bw,
 		bw_continuous,
@@ -66,8 +66,19 @@ log_pdtmvn_kernel <- function(x,
         conditional_center_discrete_offset_multiplier <- NULL
     }
     
-    unadjusted_result <- pdtmvn_kernel(x = log(x),
-        center = log(center),
+    ## center parameter of pdtmvn_kernel is mean of log
+    ## mode of resulting log-normal distribution is
+    ## mode = exp(mu - bw %*% 1) (where 1 is a column vector of 1s)
+    ## therefore mu = log(mode) + bw %*% 1
+    ## we have to jump through some hoops to ensure that the
+    ## variables come in the right order
+    reduced_x_names <- names(x)
+    inds_x_vars_in_orig_vars <- which(x_names %in% reduced_x_names)
+    x_names_for_call <- x_names[inds_x_vars_in_orig_vars]
+    
+    mean_offset <- apply(bw, 1, sum)[x_names %in% colnames(center)]
+    unadjusted_result <- pdtmvn_kernel(x = log(x)[, x_names_for_call, drop = FALSE],
+        center = sweep(log(center)[, x_names_for_call, drop = FALSE], 2, mean_offset, `+`),
         bw = bw,
         bw_continuous = bw_continuous,
         conditional_bw_discrete = conditional_bw_discrete,
@@ -132,7 +143,7 @@ log_pdtmvn_kernel <- function(x,
 #' 
 #' @return the value of the kernel function given by the pdtmvn distribution
 #'     at x.
-rlog_pdtmvn_kernel <- function(n,
+rlog_pdtmvn_mode_centered_kernel <- function(n,
     conditioning_obs,
     center,
     bw,
@@ -162,9 +173,15 @@ rlog_pdtmvn_kernel <- function(n,
     if(missing(conditional_center_discrete_offset_multiplier)) {
         conditional_center_discrete_offset_multiplier <- NULL
     }
+    
+    ## center parameter of pdtmvn_kernel is mean of log
+    ## mode of resulting log-normal distribution is
+    ## mode = exp(mu - bw %*% 1) (where 1 is a column vector of 1s)
+    ## therefore mu = log(mode) + bw %*% 1
+    mean_offset <- apply(bw, 1, sum)
     return(exp(rpdtmvn_kernel(n = n,
                 conditioning_obs = log_conditioning_obs,
-                center = log(center),
+                center = sweep(log(center), 2, mean_offset, `+`),
                 bw = bw,
                 bw_continuous = bw_continuous,
                 conditional_bw_discrete = conditional_bw_discrete,
@@ -190,7 +207,7 @@ rlog_pdtmvn_kernel <- function(n,
 #'
 #' @return vector containing parameters that are estimated on a scale
 #'     suitable for numerical optimization
-vectorize_params_log_pdtmvn_kernel <- function(theta_list, ...) {
+vectorize_params_log_pdtmvn_mode_centered_kernel <- function(theta_list, ...) {
     return(vectorize_params_pdtmvn_kernel(theta_list = theta_list))
 }
 
@@ -210,7 +227,7 @@ vectorize_params_log_pdtmvn_kernel <- function(theta_list, ...) {
 #' @param kcde_control list of control parameters to kcde
 #' 
 #' @return list of parameters to pdtmvn_kernel
-update_theta_from_vectorized_theta_est_log_pdtmvn_kernel <- function(theta_est_vector, theta) {
+update_theta_from_vectorized_theta_est_log_pdtmvn_mode_centered_kernel <- function(theta_est_vector, theta) {
     return(update_theta_from_vectorized_theta_est_pdtmvn_kernel(theta_est_vector = theta_est_vector, theta = theta))
 }
 
@@ -230,7 +247,7 @@ update_theta_from_vectorized_theta_est_log_pdtmvn_kernel <- function(theta_est_v
 #' @param ... used to absorb other arguments in the function call
 #' 
 #' @return list with initial values of parameters to the pdtmvn_kernel
-initialize_params_log_pdtmvn_kernel <- function(prev_theta,
+initialize_params_log_pdtmvn_mode_centered_kernel <- function(prev_theta,
 	x,
     total_num_vars,
     sample_size,
@@ -250,6 +267,6 @@ initialize_params_log_pdtmvn_kernel <- function(prev_theta,
 #' @param ... mop up arguments
 #' 
 #' @return list with two components: lower and upper, numeric vectors
-get_theta_optim_bounds_log_pdtmvn_kernel <- function(theta_list, ...) {
+get_theta_optim_bounds_log_pdtmvn_mode_centered_kernel <- function(theta_list, ...) {
     return(get_theta_optim_bounds_pdtmvn_kernel(theta_list))
 }

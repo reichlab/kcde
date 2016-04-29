@@ -407,7 +407,7 @@ est_kcde_params_stepwise_crossval_one_potential_step <- function(
 }
 
 #' Using cross-validation, estimate the loss associated with a particular set
-#' of lags and kernel function parameters.
+#' of lags and kernel function parameters.  We calculate log-score loss
 #' 
 #' @param combined_params_vector vector of parameters for filtering and kernel
 #'     functions that are being estimated
@@ -468,7 +468,7 @@ kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
     ## computed multiple times in the call to kcde_predict_given_lagged_obs
     num_obs_per_crossval_group <- floor(nrow(cross_validation_examples) /
         kcde_control$par_cores)
-    t_pred_groups <- lapply(seq_len(kcde_control$par_cores),
+    t_train_groups <- lapply(seq_len(kcde_control$par_cores),
         function(group_num) {
             if(!identical(group_num, as.integer(kcde_control$par_cores))) {
                 return(seq(from = (group_num - 1) * num_obs_per_crossval_group + 1,
@@ -480,86 +480,121 @@ kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
         }
     )
     
-    crossval_loss_by_time_ind <- foreach(i = seq_along(t_pred_groups),
+#    i <- 1L # used for debugging
+    kernel_values_by_t_train_group <- foreach(i = seq_along(t_train_groups),
             .packages = c("kcde", kcde_control$par_packages),
             .combine = "c") %dopar% {
-        return(sapply(
-            t_pred_groups[[i]],
-            function(t_pred) {
-                ## get training indices -- those indices not within
-                ## t_pred +/- kcde_control$crossval_buffer
-                t_train <- seq_len(nrow(cross_validation_examples))
-                if(is.null(kcde_control$time_name)) {
-                    ## If no time variable, we just leave out index t_pred +/- as.integer(kcde_control$crossval_buffer)
-                    t_train_near_t_pred <- abs(t_train - t_pred) <= as.integer(kcde_control$crossval_buffer)
-                } else {
-                    ## If there is a time variable, we compute indices to leave out based on that
-                    pred_time <- cross_validation_examples[t_pred, kcde_control$time_name]
-                    t_train_near_t_pred <- 
-                        abs(cross_validation_examples[, kcde_control$time_name] - pred_time) <= kcde_control$crossval_buffer
-                }
-                t_train <- t_train[! t_train_near_t_pred]
-                
-                ## calculate kernel weights and centers for prediction at
-                ## prediction_lagged_obs based on train_lagged_obs and
-                ## train_lead_obs
-                ## assemble lagged and lead observations -- subsets of
-                ## cross_validation_examples given by t_pred and t_train
-                ## we can re-use the weights at different prediction_target_inds,
-                ## and just have to adjust the kernel centers
-                train_lagged_obs <- cross_validation_examples[
-                    t_train, predictive_var_combined_names, drop=FALSE]
-                train_lead_obs <- cross_validation_examples[
-                    t_train, target_var_combined_names, drop=FALSE]
-                prediction_lagged_obs <- 
-                    cross_validation_examples[
-                        t_pred, predictive_var_combined_names, drop=FALSE]
-                prediction_lead_obs <-
-                    cross_validation_examples[
-                        t_pred, target_var_combined_names, drop=FALSE]
-                
-                ## for each prediction target variable, compute loss
-                crossval_loss_by_prediction_target <- sapply(
-                    target_var_combined_names,
-                    function(target_name) {
-                        ## calculate and return value of loss function based on
-                        ## prediction and realized value
-                        loss_args <- kcde_control$loss_args
-                        
-                        loss_fn_prediction_args <- c(
-                            kcde_control$loss_fn_prediction_args,
-                            list(
-                                train_lagged_obs=train_lagged_obs,
-                                train_lead_obs=train_lead_obs[, target_name, drop = FALSE],
-                                prediction_lagged_obs=prediction_lagged_obs,
-                                prediction_test_lead_obs=prediction_lead_obs[, target_name, drop = FALSE],
-                                kcde_fit=list(
-                                    theta_hat=theta,
-                                    kcde_control=kcde_control
-                                )
-                            )
-                        )
-                        loss_args$prediction_result <- do.call(
-                            kcde_predict_given_lagged_obs,
-                            loss_fn_prediction_args
-                        )
-                        
-                        loss_args$obs <- as.numeric(
-                            cross_validation_examples[
-                                t_pred, target_name]
-                        )
-                        
-                        return(do.call(kcde_control$loss_fn, loss_args))
-                    })
-                
-                return(sum(crossval_loss_by_prediction_target))
+        ## Allocate array to store results.  Initialize to -Inf, which
+        ## means there will be no contribution when logspace_sum is used.
+        result_one_group <- array(-Inf,
+            dim = c(
+                nrow(cross_validation_examples),
+                length(t_train_groups[[i]]),
+                length(target_var_combined_names) + 1
+            )
+        )
+        
+        for(t_train_ind in seq_along(t_train_groups[[i]])) {
+            t_train <- t_train_groups[[i]][t_train_ind]
+            ## get indices of x at which we evaluate the kernel:
+            ## those indices not within t_train +/- kcde_control$crossval_buffer
+            t_pred <- seq_len(nrow(cross_validation_examples))
+            if(is.null(kcde_control$time_name)) {
+                ## If no time variable, we just leave out index t_pred +/- as.integer(kcde_control$crossval_buffer)
+                t_train_near_t_pred <- abs(t_pred - t_train) <= as.integer(kcde_control$crossval_buffer)
+            } else {
+                ## If there is a time variable, we compute indices to leave out based on that
+                train_time <- cross_validation_examples[t_train, kcde_control$time_name]
+                t_train_near_t_pred <- 
+                    abs(cross_validation_examples[, kcde_control$time_name] - train_time) <= kcde_control$crossval_buffer
             }
-        ))
+            t_pred <- t_pred[! t_train_near_t_pred]
+            
+            ## assemble lagged and lead observations -- subsets of
+            ## cross_validation_examples given by t_pred and t_train
+            train_lagged_obs <- cross_validation_examples[
+                t_train, predictive_var_combined_names, drop=FALSE]
+            train_lead_obs <- cross_validation_examples[
+                t_train, target_var_combined_names, drop=FALSE]
+            prediction_lagged_obs <- 
+                cross_validation_examples[
+                    t_pred, predictive_var_combined_names, drop=FALSE]
+            prediction_lead_obs <-
+                cross_validation_examples[
+                    t_pred, target_var_combined_names, drop=FALSE]
+            
+            ## kernel values for just x
+            result_one_group[t_pred, t_train_ind, 1] <-
+                compute_kernel_values(train_lagged_obs,
+                    prediction_lagged_obs,
+                    kernel_components = kcde_control$kernel_components,
+                    theta = theta,
+                    log = TRUE)
+            
+            ## kernel values for each prediction target variable
+            for(target_var_ind in seq_along(target_var_combined_names)) {
+                target_var_combined_name <- target_var_combined_names[target_var_ind]
+                result_one_group[t_pred, t_train_ind, target_var_ind + 1] <-
+                    compute_kernel_values(
+                        cbind(train_lagged_obs, train_lead_obs[, target_var_combined_name, drop = FALSE]),
+                        cbind(prediction_lagged_obs, prediction_lead_obs[, target_var_combined_name, drop = FALSE]),
+                        kernel_components = kcde_control$kernel_components,
+                        theta = theta,
+                        log = TRUE)
+            }
+        }
+        
+        return(list(result_one_group))
+    }
+#    kernel_values_by_t_train_group <- list(result_one_group) # used for debugging
+    
+    ## combine array results calculated in parallel
+    kernel_values_by_time_pair <- array(NA,
+        dim = c(
+            nrow(cross_validation_examples),
+            nrow(cross_validation_examples),
+            length(target_var_combined_names) + 1
+        )
+    )
+    
+    kv_row_ind <- 1L
+    for(group_results in kernel_values_by_t_train_group) {
+        nrow_group_results <- dim(group_results)[2]
+        kernel_values_by_time_pair[
+            , seq(from = kv_row_ind, length = nrow_group_results), ] <-
+            group_results
+        
+        kv_row_ind <- kv_row_ind + nrow_group_results
+    }
+    
+    ## for each set of kernel values computed above
+    ## (x only and (x,y) for each target variable y),
+    ## compute the vector log(sum_{t_train}(kernel(t_train, t_pred)))
+    ## where t_pred varies in the vector entries
+    log_sum_kernel_vals_by_kernel_var <- lapply(
+        seq_len(dim(kernel_values_by_time_pair)[3]),
+        function(target_var_ind) {
+            return(logspace_sum_matrix_rows(
+                as.matrix(kernel_values_by_time_pair[, , target_var_ind])
+            ))
+        }
+    )
+    
+    crossval_loss_by_time_ind <-
+        log_sum_kernel_vals_by_kernel_var[[2]] -
+        log_sum_kernel_vals_by_kernel_var[[1]]
+    
+    if(length(log_sum_kernel_vals_by_kernel_var) > 2L) {
+        for(target_var_ind in seq(from = 3, to = length(log_sum_kernel_vals_by_kernel_var))) {
+            crossval_loss_by_time_ind <- crossval_loss_by_time_ind +
+                log_sum_kernel_vals_by_kernel_var[[target_var_ind]] -
+                log_sum_kernel_vals_by_kernel_var[[1]]
+        }
     }
     
     cat(combined_params_vector)
     cat("\n")
-    cat(sum(crossval_loss_by_time_ind))
+    cat(-1 * sum(crossval_loss_by_time_ind))
     cat("\n")
     cat("\n")
 #    if(any(is.na(crossval_loss_by_time_ind) | is.infinite(crossval_loss_by_time_ind)) ||
@@ -587,6 +622,223 @@ kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
         message("NAs or Infs in cross validated estimate of loss")
         return(10^10)
     } else {
-        return(sum(crossval_loss_by_time_ind))
+        ## multiply by -1 to get negative loss, which is minimized by optim
+        return(-1 * sum(crossval_loss_by_time_ind))
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##' Using cross-validation, estimate the loss associated with a particular set
+##' of lags and kernel function parameters.
+##' 
+##' @param combined_params_vector vector of parameters for filtering and kernel
+##'     functions that are being estimated
+##' @param theta list of kernel function parameters, both those that are being
+##'     estimated and those that are out of date.  Possibly the values of
+##'     parameters being estimated are out of date; they will be replaced with
+##'     the values in theta_est_vector.
+##' @param vars_and_offsets list representing combinations of variables and lags
+##'     included in the model
+##' @param data the data frame to use in performing cross validation
+##' @param kcde_control a list of parameters specifying how the fitting is done
+##' 
+##' @return numeric -- cross-validation estimate of loss associated with the
+##'     specified parameters
+#kcde_crossval_estimate_parameter_loss <- function(combined_params_vector,
+#    phi,
+#    theta,
+#    vars_and_offsets,
+#    data,
+#    leading_rows_to_drop,
+#    trailing_rows_to_drop,
+#    additional_rows_to_drop,
+#    kcde_control) {
+#    ## update phi and theta with elements of combined_params_vector and
+#    ## transform back to list and original parameter scale
+#    temp <- update_phi_from_vectorized_phi_est(combined_params_vector,
+#        phi,
+#        kcde_control$filter_control)
+#    
+#    phi <- temp$phi
+#    ## index of the first element of combined_params_vector that corresponds
+#    ## to a theta parameter
+#    next_param_ind <- temp$next_param_ind
+#    
+#    theta <- update_theta_from_vectorized_theta_est(
+#        combined_params_vector[seq(from = next_param_ind,
+#                length = length(combined_params_vector) - next_param_ind + 1)],
+#        theta,
+#        kcde_control)
+#    
+#    ## Create data frame of filtered and lagged cross validation examples
+#    cross_validation_examples <- compute_offset_obs_vecs(data = data,
+#        filter_control = kcde_control$filter_control,
+#        phi = phi,
+#        vars_and_offsets = vars_and_offsets,
+#        time_name = kcde_control$time_name,
+#        leading_rows_to_drop = leading_rows_to_drop,
+#        trailing_rows_to_drop = trailing_rows_to_drop,
+#        additional_rows_to_drop = additional_rows_to_drop,
+#        na.action = kcde_control$na.action)
+#    
+#    predictive_var_combined_names <- vars_and_offsets$combined_name[vars_and_offsets$offset_type == "lag"]
+#    target_var_combined_names <- vars_and_offsets$combined_name[vars_and_offsets$offset_type == "horizon"]
+#    
+#    ## This could be made more computationally efficient by computing
+#    ## kernel values for all relevant combinations of lags for each variable,
+#    ## then combining as appropriate -- currently, the same kernel value may be
+#    ## computed multiple times in the call to kcde_predict_given_lagged_obs
+#    num_obs_per_crossval_group <- floor(nrow(cross_validation_examples) /
+#            kcde_control$par_cores)
+#    t_pred_groups <- lapply(seq_len(kcde_control$par_cores),
+#        function(group_num) {
+#            if(!identical(group_num, as.integer(kcde_control$par_cores))) {
+#                return(seq(from = (group_num - 1) * num_obs_per_crossval_group + 1,
+#                        length = num_obs_per_crossval_group))
+#            } else {
+#                return(seq(from = (group_num - 1) * num_obs_per_crossval_group + 1,
+#                        to = nrow(cross_validation_examples)))
+#            }
+#        }
+#    )
+#    
+#    crossval_loss_by_time_ind <- foreach(i = seq_along(t_pred_groups),
+#            .packages = c("kcde", kcde_control$par_packages),
+#            .combine = "c") %dopar% {
+#            return(sapply(
+#                    t_pred_groups[[i]],
+#                    function(t_pred) {
+#                        ## get training indices -- those indices not within
+#                        ## t_pred +/- kcde_control$crossval_buffer
+#                        t_train <- seq_len(nrow(cross_validation_examples))
+#                        if(is.null(kcde_control$time_name)) {
+#                            ## If no time variable, we just leave out index t_pred +/- as.integer(kcde_control$crossval_buffer)
+#                            t_train_near_t_pred <- abs(t_train - t_pred) <= as.integer(kcde_control$crossval_buffer)
+#                        } else {
+#                            ## If there is a time variable, we compute indices to leave out based on that
+#                            pred_time <- cross_validation_examples[t_pred, kcde_control$time_name]
+#                            t_train_near_t_pred <- 
+#                                abs(cross_validation_examples[, kcde_control$time_name] - pred_time) <= kcde_control$crossval_buffer
+#                        }
+#                        t_train <- t_train[! t_train_near_t_pred]
+#                        
+#                        ## calculate kernel weights and centers for prediction at
+#                        ## prediction_lagged_obs based on train_lagged_obs and
+#                        ## train_lead_obs
+#                        ## assemble lagged and lead observations -- subsets of
+#                        ## cross_validation_examples given by t_pred and t_train
+#                        ## we can re-use the weights at different prediction_target_inds,
+#                        ## and just have to adjust the kernel centers
+#                        train_lagged_obs <- cross_validation_examples[
+#                            t_train, predictive_var_combined_names, drop=FALSE]
+#                        train_lead_obs <- cross_validation_examples[
+#                            t_train, target_var_combined_names, drop=FALSE]
+#                        prediction_lagged_obs <- 
+#                            cross_validation_examples[
+#                                t_pred, predictive_var_combined_names, drop=FALSE]
+#                        prediction_lead_obs <-
+#                            cross_validation_examples[
+#                                t_pred, target_var_combined_names, drop=FALSE]
+#                        
+#                        ## for each prediction target variable, compute loss
+#                        crossval_loss_by_prediction_target <- sapply(
+#                            target_var_combined_names,
+#                            function(target_name) {
+#                                ## calculate and return value of loss function based on
+#                                ## prediction and realized value
+#                                loss_args <- kcde_control$loss_args
+#                                
+#                                loss_fn_prediction_args <- c(
+#                                    kcde_control$loss_fn_prediction_args,
+#                                    list(
+#                                        train_lagged_obs=train_lagged_obs,
+#                                        train_lead_obs=train_lead_obs[, target_name, drop = FALSE],
+#                                        prediction_lagged_obs=prediction_lagged_obs,
+#                                        prediction_test_lead_obs=prediction_lead_obs[, target_name, drop = FALSE],
+#                                        kcde_fit=list(
+#                                            theta_hat=theta,
+#                                            kcde_control=kcde_control
+#                                        )
+#                                    )
+#                                )
+#                                loss_args$prediction_result <- do.call(
+#                                    kcde_predict_given_lagged_obs,
+#                                    loss_fn_prediction_args
+#                                )
+#                                
+#                                loss_args$obs <- as.numeric(
+#                                    cross_validation_examples[
+#                                        t_pred, target_name]
+#                                )
+#                                
+#                                return(do.call(kcde_control$loss_fn, loss_args))
+#                            })
+#                        
+#                        return(sum(crossval_loss_by_prediction_target))
+#                    }
+#                ))
+#        }
+#    
+#    cat(combined_params_vector)
+#    cat("\n")
+#    cat(sum(crossval_loss_by_time_ind))
+#    cat("\n")
+#    cat("\n")
+##    if(any(is.na(crossval_loss_by_time_ind) | is.infinite(crossval_loss_by_time_ind)) ||
+##        is.infinite(sum(crossval_loss_by_time_ind))) {
+##        browser()
+##    }
+#    
+#    ## parameters resulted in numerical instability
+#    ## If bw-chol parameterization was used, this is probably due to
+#    ## numerically 0 bandwidths.  Could have any of three effects:
+#    ##  - zero values, if the numerator and denominator in calculating
+#    ##    conditional kernel values were both so large that their difference is 0
+#    ##  - NA values or Inf values.
+#    ## In any of these cases, we return a large value;
+#    ## this results in rejection of these parameter values
+#    crossval_loss_eq_0 <- sapply(
+#        crossval_loss_by_time_ind,
+#        function(cvli) {
+#            isTRUE(all.equal(cvli, 0))
+#        }
+#    )
+#    if(any(is.na(crossval_loss_by_time_ind) |
+#            is.infinite(crossval_loss_by_time_ind) |
+#            crossval_loss_eq_0)) {
+#        message("NAs or Infs in cross validated estimate of loss")
+#        return(10^10)
+#    } else {
+#        return(sum(crossval_loss_by_time_ind))
+#    }
+#}
