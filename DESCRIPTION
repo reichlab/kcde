@@ -1,12 +1,29 @@
 Package: kcde
-Title: Kernel conditional density estimation with flexible kernel specifications.
+Title: Kernel conditional density estimation with flexible kernel
+    specifications.
 Version: 0.0.0.9000
-Author: person("Evan", "Ray", , "elray@umass.edu", role = c("aut", "cre"))
-Description: A flexible implementation of kernel conditional density estimation.  The user may specify the kernel function in terms of a product of several component kernel functions, each of which is used for one or more variables.  Although the package functionality can be used in any context, it is oriented toward prediction in the context of time series and handles treatment of lagged and lead covariates.  Two default kernel specifications are provided: a periodic kernel function, and a partially discretized truncated multivariate normal.  Predictions may take the form of (1) evaluating the predictive density, (2) point predictions [not yet implemented], or (3) sampling from the predictive density.
-Depends: R (>= 3.0.2)
-Imports: robust, pdtmvn, plyr
+Authors@R: person("Evan", "Ray", , "elray@umass.edu", c("aut", "cre"))
+Description: A flexible implementation of kernel conditional density estimation.
+    The user may specify the kernel function in terms of a product of several
+    component kernel functions, each of which is used for one or more variables.
+    Although the package functionality can be used in any context, it is
+    oriented toward prediction in the context of time series and handles
+    treatment of lagged and lead covariates. Two default kernel specifications
+    are provided: a periodic kernel function, and a partially discretized
+    truncated multivariate normal. Predictions may take the form of (1)
+    evaluating the predictive density, (2) point predictions [not yet
+    implemented], or (3) sampling from the predictive density.
+Depends:
+    R (>= 3.0.2)
+Imports:
+    robust,
+    pdtmvn,
+    plyr
 License: What license is it under?
 LazyData: true
-Suggests: knitr
+Suggests:
+    knitr,
+    testthat
 VignetteBuilder: knitr
-
+Remotes: reichlab/pdtmvn
+RoxygenNote: 5.0.1
