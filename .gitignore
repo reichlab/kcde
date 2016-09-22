@@ -11,3 +11,8 @@ data-raw
 *.log
 *.synctex.gz
 *concordance.tex
+
+*.so
+*.o
+
+*.org
