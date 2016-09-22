@@ -106,7 +106,7 @@ pdtmvn_kernel <- function(x,
         }
         
         
-        reduced_x_names <- names(x)
+        reduced_x_names <- colnames(x)
         inds_x_vars_in_orig_vars <- which(x_names %in% reduced_x_names)
         continuous_x_names <- x_names[continuous_var_col_inds]
         reduced_continuous_var_col_inds <- which(reduced_x_names %in% continuous_x_names)
@@ -543,7 +543,13 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
             new_theta$x_names <- colnames(x)
             
             require(robust)
-            sample_cov_hat <- robust::covRob(x)$cov
+            sample_cov_hat <- 
+                tryCatch(
+                    robust::covRob(x)$cov,
+                    error = function(e) {
+                        cov(x)
+                    }
+                )
         } else {
             new_theta$x_names <- names(x)
             
@@ -573,7 +579,13 @@ initialize_params_pdtmvn_kernel <- function(prev_theta,
             new_theta$x_names <- colnames(x)
             
             require(robust)
-            sample_cov_hat <- robust::covRob(x)$cov
+            sample_cov_hat <- 
+                tryCatch(
+                    robust::covRob(x)$cov,
+                    error = function(e) {
+                        cov(x)
+                    }
+                )
         } else {
             new_theta$x_names <- names(x)
             
