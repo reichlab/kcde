@@ -178,10 +178,15 @@ rlog_pdtmvn_mode_centered_kernel <- function(n,
     ## mode of resulting log-normal distribution is
     ## mode = exp(mu - bw %*% 1) (where 1 is a column vector of 1s)
     ## therefore mu = log(mode) + bw %*% 1
-    mean_offset <- apply(bw, 1, sum)
+    reduced_x_names <- names(center)
+    inds_x_vars_in_orig_vars <- which(x_names %in% reduced_x_names)
+    x_names_for_call <- x_names[inds_x_vars_in_orig_vars]
+    
+    mean_offset <- apply(bw, 1, sum)[x_names %in% colnames(center)]
+        
     return(exp(rpdtmvn_kernel(n = n,
                 conditioning_obs = log_conditioning_obs,
-                center = sweep(log(center), 2, mean_offset, `+`),
+                center = sweep(log(center)[, x_names_for_call, drop = FALSE], 2, mean_offset, `+`),
                 bw = bw,
                 bw_continuous = bw_continuous,
                 conditional_bw_discrete = conditional_bw_discrete,
@@ -193,7 +198,7 @@ rlog_pdtmvn_mode_centered_kernel <- function(n,
                 discrete_var_range_fns = discrete_var_range_fns,
                 lower = lower,
                 upper = upper,
-                x_names = x_names)))
+                x_names = x_names)[, reduced_x_names, drop = FALSE]))
 }
 
 
