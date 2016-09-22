@@ -2,6 +2,5 @@ method-description
 ^.*\.Rproj$
 ^\.Rproj\.user$
 .gitignore
-*.org
 ^\.travis\.yml$
 ^codecov\.yml$
