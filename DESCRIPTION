@@ -23,7 +23,8 @@ License: What license is it under?
 LazyData: true
 Suggests:
     knitr,
-    testthat
+    testthat,
+    covr
 VignetteBuilder: knitr
 Remotes: reichlab/pdtmvn
 RoxygenNote: 5.0.1

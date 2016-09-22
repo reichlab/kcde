@@ -4,3 +4,4 @@ method-description
 .gitignore
 *.org
 ^\.travis\.yml$
+^codecov\.yml$
