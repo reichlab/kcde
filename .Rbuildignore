@@ -3,3 +3,4 @@ method-description
 ^\.Rproj\.user$
 .gitignore
 *.org
+^\.travis\.yml$
