@@ -41,6 +41,11 @@
 #' @param crossval_buffer during cross-validation, the number of indices before
 #'     the time at which we are making a prediction to drop from the "training
 #'     examples".
+#' @param prediction_inds_not_included an integer vector specifying indices of
+#'     the data set that is provided in estimation that should not be included
+#'     in the calculation of the loss.  The observations at these indices may
+#'     still be included as conditioning variables used to make predictions at
+#'     other times.
 #' @param loss_fn_name a string giving the name of the function use to
 #'     compute loss from predictions
 #' @param loss_args a named list giving arguments to the loss function
@@ -58,6 +63,7 @@ create_kcde_control <- function(X_names,
         kernel_components,
         filter_control,
         crossval_buffer,
+        prediction_inds_not_included,
         loss_fn,
         loss_fn_prediction_args,
         loss_args,
@@ -77,6 +83,7 @@ create_kcde_control <- function(X_names,
     kcde_control$filter_control <- filter_control
     
     kcde_control$crossval_buffer <- crossval_buffer
+    kcde_control$prediction_inds_not_included <- prediction_inds_not_included
     
     kcde_control$loss_fn <- loss_fn
     kcde_control$loss_fn_prediction_args <- loss_fn_prediction_args

@@ -5,6 +5,7 @@
 ## assemble_prediction_examples
 ## compute_normalized_log_weights
 ## compute_lagged_obs_vecs
+## compute_na_rows_after_filter_and_offset
 ## mase_from_kernel_weights_and_centers
 ## mae_from_kernel_weights_and_centers
 ## get_inds_smallest_k
@@ -212,7 +213,8 @@ compute_offset_obs_vecs <- function(data,
 }
 
 #' Compute rows of the data frame that contain NA values after performing the filtering and
-#' observation offset steps.
+#' observation offset steps.  Also include values of prediction_inds_not_included
+#' that were specified in kcde_control, if applicable.
 #' 
 #' @param data data frame of observations to filter and offset
 #' @param phi list of parameters for filtering
@@ -245,6 +247,10 @@ compute_na_rows_after_filter_and_offset <- function(data, phi, vars_and_offsets,
             filtered_and_lagged_data[vars_and_offsets$combined_name],
             1,
             anyNA))
+    
+    if(!is.null(kcde_control$prediction_inds_not_included)) {
+      all_na_drop_rows <- unique(c(all_na_drop_rows, kcde_control$prediction_inds_not_included))
+    }
     
     return(all_na_drop_rows)
 }
