@@ -19,7 +19,7 @@ Imports:
     robust,
     pdtmvn,
     plyr
-License: What license is it under?
+License: GPL-3
 LazyData: true
 Suggests:
     knitr,
