@@ -1,9 +1,9 @@
-/* 
+/*
  ============================================================================
  Name        : utilityFunctions.h
  Author      : Evan Ray
  Version     :
- Copyright   : 
+ Copyright   :
  Description : utility functions for numeric calculations and interacting with R
  ============================================================================
  */
@@ -11,11 +11,11 @@
 #include <Rdefines.h>
 
 
+double logspace_add_safe(double log_x, double log_y);
+
 SEXP get_dbl_max();
 
 SEXP getListElement(SEXP list, const char *str);
-
-double logspace_add_safe(double log_x, double log_y);
 
 SEXP logspace_add_C(SEXP x, SEXP y);
 
