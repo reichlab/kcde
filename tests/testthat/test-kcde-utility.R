@@ -1,3 +1,5 @@
+library(dplyr)
+
 ## all functions in kcde-utility.R
 ##   leading X means test written,
 ##   leading I means implicitly tested by another test
