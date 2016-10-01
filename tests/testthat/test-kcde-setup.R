@@ -1,9 +1,3 @@
-library(kcde)
-library(magrittr)
-library(plyr)
-library(dplyr)
-library(mvtnorm)
-
 ## all functions in kcde-setup.R
 ##   leading X means test written,
 ##   leading I means implicitly tested by another test
@@ -14,7 +8,6 @@ library(mvtnorm)
 ##   create_kcde_control_default
 ##   get_default_kernel_components
 ##   validate_kcde_control
-
 
 
 context("kcde-setup -- no tests implemented")
