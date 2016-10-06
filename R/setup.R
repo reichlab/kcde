@@ -55,7 +55,6 @@
 #' @param na.action a character string specifying how NA values should be handled.
 #'
 #' @return the (at this point, unvalidated) list of kcde_control parameters
-#' @export
 create_kcde_control <- function(X_names,
                                 y_names,
                                 time_name,
@@ -83,13 +82,15 @@ create_kcde_control <- function(X_names,
     kcde_control$filter_control <- filter_control
 
     kcde_control$crossval_buffer <- crossval_buffer
-    kcde_control$prediction_inds_not_included <- prediction_inds_not_included
+    kcde_control$prediction_inds_not_included <-
+        prediction_inds_not_included
 
     kcde_control$loss_fn <- loss_fn
     kcde_control$loss_fn_prediction_args <- loss_fn_prediction_args
     kcde_control$loss_args <- loss_args
 
-    kcde_control$variable_selection_method <- variable_selection_method
+    kcde_control$variable_selection_method <-
+        variable_selection_method
 
     kcde_control$par_packages <- par_packages
     kcde_control$par_cores <- par_cores
@@ -116,10 +117,11 @@ create_kcde_control_default <- function(X_names, y_names, data) {
     kcde_control$X_names <- X_names
     kcde_control$y_names <- y_names
 
-    kcde_control$kernel_components <- get_default_kernel_components(X_names,
-                                                                    y_names,
-                                                                    time_name,
-                                                                    data)
+    kcde_control$kernel_components <-
+        get_default_kernel_components(X_names,
+                                      y_names,
+                                      time_name,
+                                      data)
 
     kcde_control$loss_fn_name <- "mase"
     kcde_control$loss_fn_args <- list()

@@ -35,28 +35,40 @@ update_vars_and_offsets <- function(prev_vars_and_offsets,
                                     update_offset_type) {
     updated_vars_and_offsets <- prev_vars_and_offsets
 
-    existing_ind <- which(updated_vars_and_offsets$var_name == update_var_name &
-                          updated_vars_and_offsets$offset_value == update_offset_value &
-                          updated_vars_and_offsets$offset_type == update_offset_type)
+    existing_ind <-
+        which(
+            updated_vars_and_offsets$var_name == update_var_name &
+                updated_vars_and_offsets$offset_value == update_offset_value &
+                updated_vars_and_offsets$offset_type == update_offset_type
+        )
 
     if (length(existing_ind) > 0) {
         ## remove variable/offset combination from model
-        updated_vars_and_offsets <- updated_vars_and_offsets[-existing_ind, , drop = FALSE]
+        updated_vars_and_offsets <-
+            updated_vars_and_offsets[-existing_ind, , drop = FALSE]
     } else {
         ## add variable/offset combination to model
-        updated_vars_and_offsets <- rbind(updated_vars_and_offsets,
-                                          data.frame(var_name = update_var_name,
-                                                     offset_value = as.integer(update_offset_value),
-                                                     offset_type = update_offset_type,
-                                                     combined_name = paste0(update_var_name,
-                                                                            "_",
-                                                                            update_offset_type,
-                                                                            update_offset_value)))
+        updated_vars_and_offsets <- rbind(
+            updated_vars_and_offsets,
+            data.frame(
+                var_name = update_var_name,
+                offset_value = as.integer(update_offset_value),
+                offset_type = update_offset_type,
+                combined_name = paste0(
+                    update_var_name,
+                    "_",
+                    update_offset_type,
+                    update_offset_value
+                )
+            )
+        )
 
         ## Sort rows by combined_name to ensure uniqueness
-        row_reordering <- order(updated_vars_and_offsets$combined_name)
+        row_reordering <-
+            order(updated_vars_and_offsets$combined_name)
 
-        updated_vars_and_offsets <- updated_vars_and_offsets[row_reordering, , drop = FALSE]
+        updated_vars_and_offsets <-
+            updated_vars_and_offsets[row_reordering, , drop = FALSE]
     }
 
     ## Set rownames to NULL -- otherwise, the order in which variables are added
@@ -75,12 +87,14 @@ update_vars_and_offsets <- function(prev_vars_and_offsets,
 #' @return normalized log_weights so that sum(exp(log_weights)) = 1
 compute_normalized_log_weights <- function(log_weights) {
     ## normalize
-    norm_const <- logspace_sum_matrix_rows(matrix(log_weights, nrow = 1))
+    norm_const <-
+        logspace_sum_matrix_rows(matrix(log_weights, nrow = 1))
     log_weights <- log_weights - norm_const
 
     ## normalize again -- if the initial log_weights were "extreme", the norm_const
     ## computed above may be approximate.
-    norm_const <- logspace_sum_matrix_rows(matrix(log_weights, nrow = 1))
+    norm_const <-
+        logspace_sum_matrix_rows(matrix(log_weights, nrow = 1))
 
     return(log_weights - norm_const)
 }
@@ -90,7 +104,7 @@ compute_normalized_log_weights <- function(log_weights) {
 #' @param data a data frame
 #' @param filter_control control for filtering data (compute_filter_values)
 #' @param phi phi parameter for filtering (compute_filter_values)
-#' @param vars_and_offsets a named list: The component name matches the name of 
+#' @param vars_and_offsets a named list: The component name matches the name of
 #'     one of the variables in data, and the component value is an integer
 #'     vector of lags to include for that variable
 #' @param time_name time names for adding to data columns
@@ -119,9 +133,21 @@ compute_offset_obs_vecs <- function(data,
                                     additional_rows_to_drop = NULL,
                                     na.action = "na.omit") {
     ## validate leading_rows_to_drop, trailing_rows_to_drop, additional_rows_to_drop
-    if (any(c(leading_rows_to_drop, trailing_rows_to_drop, additional_rows_to_drop) < 0 |
-            c(leading_rows_to_drop, trailing_rows_to_drop, additional_rows_to_drop) > nrow(data))) {
-        stop("leading_rows_to_drop, trailing_rows_to_drop, and additional_rows_to_drop must be integers between 0 and nrow(data)")
+    if (any(
+        c(
+            leading_rows_to_drop,
+            trailing_rows_to_drop,
+            additional_rows_to_drop
+        ) < 0 |
+        c(
+            leading_rows_to_drop,
+            trailing_rows_to_drop,
+            additional_rows_to_drop
+        ) > nrow(data)
+    )) {
+        stop(
+            "leading_rows_to_drop, trailing_rows_to_drop, and additional_rows_to_drop must be integers between 0 and nrow(data)"
+        )
     }
 
     ## max_lag <- suppressWarnings(max(vars_and_offsets$offset_value[vars_and_offsets$offset_type == "lag"]))
@@ -141,15 +167,22 @@ compute_offset_obs_vecs <- function(data,
     if (is.logical(additional_rows_to_drop)) {
         additional_rows_to_drop <- which(additional_rows_to_drop)
     }
-    rows_to_drop <- c(seq_len(leading_rows_to_drop), # leading -- too early for all lags to be available
-        seq_len(trailing_rows_to_drop) + nrow(data) - trailing_rows_to_drop, # trailing -- too late for all prediction horizons to be available
-        additional_rows_to_drop # additional (e.g., near prediction target)
-    )
+    rows_to_drop <-
+        c(
+            seq_len(leading_rows_to_drop),
+            # leading -- too early for all lags to be available
+            seq_len(trailing_rows_to_drop) + nrow(data) - trailing_rows_to_drop,
+            # trailing -- too late for all prediction horizons to be available
+            additional_rows_to_drop # additional (e.g., near prediction target)
+        )
 
     ## create a data frame with one column for each entry in the vars_and_offsets argument
-    result <- as.data.frame(matrix(NA,
-                                   nrow = nrow(data),
-                                   ncol = nrow(vars_and_offsets) + !(missing(time_name) || is.null(time_name))))
+    result <- as.data.frame(matrix(
+        NA,
+        nrow = nrow(data),
+        ncol = nrow(vars_and_offsets) +!(missing(time_name) ||
+                                             is.null(time_name))
+    ))
     if (missing(time_name) || is.null(time_name)) {
         colnames(result) <- vars_and_offsets$combined_name
     } else {
@@ -168,29 +201,39 @@ compute_offset_obs_vecs <- function(data,
     ## set column values in result
     for (new_var_ind in seq_len(nrow(vars_and_offsets))) {
         offset_val <- vars_and_offsets[new_var_ind, "offset_value"]
-        offset_type <- as.character(vars_and_offsets[new_var_ind, "offset_type"])
+        offset_type <-
+            as.character(vars_and_offsets[new_var_ind, "offset_type"])
         var_name <- vars_and_offsets[new_var_ind, "var_name"]
-        combined_name <- as.character(vars_and_offsets[new_var_ind, "combined_name"])
+        combined_name <-
+            as.character(vars_and_offsets[new_var_ind, "combined_name"])
 
         if (identical(offset_type, "lag")) {
             if (offset_val < nrow(result)) {
-                result_inds <- seq(from = 1 + offset_val, to = nrow(result))
-                data_inds <- seq(from = 1, to = nrow(result) - offset_val)
+                result_inds <- seq(from = 1 + offset_val,
+                                   to = nrow(result))
+                data_inds <-
+                    seq(from = 1,
+                        to = nrow(result) - offset_val)
             } else {
                 result_inds <- c()
                 data_inds <- c()
             }
-        } else { # assumed only alternative is "horizon"
+        } else {
+            # assumed only alternative is "horizon"
             if (offset_val < nrow(result)) {
-                result_inds <- seq(from = 1, to = nrow(result) - offset_val)
-                data_inds <- seq(from = 1 + offset_val, to = nrow(result))
+                result_inds <- seq(from = 1,
+                                   to = nrow(result) - offset_val)
+                data_inds <-
+                    seq(from = 1 + offset_val,
+                        to = nrow(result))
             } else {
                 result_inds <- c()
                 data_inds <- c()
             }
         }
 
-        result[result_inds, combined_name] <- filtered_data[data_inds, var_name]
+        result[result_inds, combined_name] <-
+            filtered_data[data_inds, var_name]
     }
 
     if (!(missing(time_name) || is.null(time_name))) {
@@ -199,7 +242,7 @@ compute_offset_obs_vecs <- function(data,
 
     ## drop specified rows
     if (length(rows_to_drop) > 0) {
-        result <- result[-rows_to_drop, , drop=FALSE]
+        result <- result[-rows_to_drop, , drop = FALSE]
     }
 
     ## Check NAs
@@ -208,7 +251,9 @@ compute_offset_obs_vecs <- function(data,
         if (length(na_rows) > 0) {
             result <- result[-na_rows, , drop = FALSE]
             if (nrow(result) == 0) {
-                stop("0 rows in cross validation data after filtering, computing offsets and dropping NA rows")
+                stop(
+                    "0 rows in cross validation data after filtering, computing offsets and dropping NA rows"
+                )
             }
         }
     } else if (!identical(na.action, "na.pass")) {
@@ -235,32 +280,37 @@ compute_na_rows_after_filter_and_offset <- function(data,
                                                     phi,
                                                     vars_and_offsets,
                                                     kcde_control) {
-    phi_init <- initialize_phi(prev_phi = phi,
-                               updated_vars_and_offsets = vars_and_offsets,
-                               update_var_name = vars_and_offsets$var_name,
-                               update_offset_value = vars_and_offsets$offset_value,
-                               update_offset_type = vars_and_offsets$offset_type,
-                               data = data,
-                               kcde_control = kcde_control)
+    phi_init <- initialize_phi(
+        prev_phi = phi,
+        updated_vars_and_offsets = vars_and_offsets,
+        update_var_name = vars_and_offsets$var_name,
+        update_offset_value = vars_and_offsets$offset_value,
+        update_offset_type = vars_and_offsets$offset_type,
+        data = data,
+        kcde_control = kcde_control
+    )
 
-    filtered_and_lagged_data <- compute_offset_obs_vecs(data = data,
-                                                        filter_control = kcde_control$filter_control,
-                                                        phi = phi_init,
-                                                        vars_and_offsets = vars_and_offsets,
-                                                        time_name = kcde_control$time_name,
-                                                        leading_rows_to_drop = 0L,
-                                                        trailing_rows_to_drop = 0L,
-                                                        additional_rows_to_drop = NULL,
-                                                        na.action = "na.pass")
+    filtered_and_lagged_data <- compute_offset_obs_vecs(
+        data = data,
+        filter_control = kcde_control$filter_control,
+        phi = phi_init,
+        vars_and_offsets = vars_and_offsets,
+        time_name = kcde_control$time_name,
+        leading_rows_to_drop = 0L,
+        trailing_rows_to_drop = 0L,
+        additional_rows_to_drop = NULL,
+        na.action = "na.pass"
+    )
 
-    all_na_drop_rows <- which(apply(
-        filtered_and_lagged_data[vars_and_offsets$combined_name],
-        1,
-        anyNA))
+    all_na_drop_rows <- which(apply(filtered_and_lagged_data[vars_and_offsets$combined_name],
+                                    1,
+                                    anyNA))
 
     if (!is.null(kcde_control$prediction_inds_not_included)) {
-        all_na_drop_rows <- unique(c(all_na_drop_rows,
-                                     kcde_control$prediction_inds_not_included))
+        all_na_drop_rows <- unique(c(
+            all_na_drop_rows,
+            kcde_control$prediction_inds_not_included
+        ))
     }
 
     return(all_na_drop_rows)
@@ -302,11 +352,12 @@ neg_log_score_loss <- function(prediction_result, ...) {
 #'
 #' @return abs(obs - prediction) where prediction is the weighted mean of the
 #'     kernel centers.
-mae_from_kernel_weights_and_centers <- function(kernel_weights_and_centers,
-                                                obs) {
-    pred <- get_pt_predictions_one_week(kernel_weights_and_centers)
-    mae(obs, pred)
-}
+mae_from_kernel_weights_and_centers <-
+    function(kernel_weights_and_centers,
+             obs) {
+        pred <- get_pt_predictions_one_week(kernel_weights_and_centers)
+        mae(obs, pred)
+    }
 
 #' Get the indices of the smallest k elements of v.
 #'
@@ -316,8 +367,11 @@ mae_from_kernel_weights_and_centers <- function(kernel_weights_and_centers,
 #' @return a vector of length k containing the indices of the k smallest
 #'     elements of v, in ascending order.
 get_inds_smallest_k <- function(v, k) {
-    take <- if (k > length(v)) length(v) else k
-    return(order(v, decreasing=FALSE)[seq_len(take)])
+    take <- if (k > length(v))
+        length(v)
+    else
+        k
+    return(order(v, decreasing = FALSE)[seq_len(take)])
 }
 
 
@@ -361,10 +415,12 @@ logspace_sum <- function(logx) {
 #'
 #' @return a vector with each element summing corresponding row of matrix
 logspace_sum_matrix_rows <- function(logX) {
-    return(.Call("logspace_sum_matrix_rows_C",
-                 as.numeric(logX),
-                 as.integer(nrow(logX)),
-                 as.integer(ncol(logX))))
+    return(.Call(
+        "logspace_sum_matrix_rows_C",
+        as.numeric(logX),
+        as.integer(nrow(logX)),
+        as.integer(ncol(logX))
+    ))
 }
 
 #' Row-wise difference of matrix with two columns in logspace
@@ -377,9 +433,11 @@ logspace_sub_matrix_rows <- function(logX) {
     if (!is.matrix(logX) || !identical(ncol(logX), 2L))
         stop("logX must be a matrix with 2 columns")
 
-    return(.Call("logspace_sub_matrix_rows_C",
-                 as.numeric(logX),
-                 as.integer(nrow(logX))))
+    return(.Call(
+        "logspace_sub_matrix_rows_C",
+        as.numeric(logX),
+        as.integer(nrow(logX))
+    ))
 }
 
 
