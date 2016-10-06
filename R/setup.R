@@ -8,7 +8,7 @@
 
 #' Assemble a list of kcde_control parameters for the kcde function with
 #'     user-specified values.
-#' 
+#'
 #' @param X_names a character vector of length >= 1 containing names of
 #'     variables in the data data frame to use in forming the lagged
 #'     observation process used for calculating weights
@@ -54,82 +54,83 @@
 #'     to be loaded in instances of R when computations are performed in
 #'     parallel.
 #' @param na.action a character string specifying how NA values should be handled.
-#' 
+#'
 #' @return the (at this point, unvalidated) list of kcde_control parameters
+#' @export
 create_kcde_control <- function(X_names,
-        y_names,
-        time_name,
-        prediction_horizons,
-        kernel_components,
-        filter_control,
-        crossval_buffer,
-        prediction_inds_not_included,
-        loss_fn,
-        loss_fn_prediction_args,
-        loss_args,
-        variable_selection_method = "stepwise",
-        par_packages = NULL,
-        par_cores = 1L,
-        na.action = "na.omit") {
+                                y_names,
+                                time_name,
+                                prediction_horizons,
+                                kernel_components,
+                                filter_control,
+                                crossval_buffer,
+                                prediction_inds_not_included,
+                                loss_fn,
+                                loss_fn_prediction_args,
+                                loss_args,
+                                variable_selection_method = "stepwise",
+                                par_packages = NULL,
+                                par_cores = 1L,
+                                na.action = "na.omit") {
     kcde_control <- list()
-    
+
     kcde_control$X_names <- X_names
     kcde_control$y_names <- y_names
     kcde_control$time_name <- time_name
-    
+
     kcde_control$prediction_horizons <- prediction_horizons
-    
+
     kcde_control$kernel_components <- kernel_components
     kcde_control$filter_control <- filter_control
-    
+
     kcde_control$crossval_buffer <- crossval_buffer
     kcde_control$prediction_inds_not_included <- prediction_inds_not_included
-    
+
     kcde_control$loss_fn <- loss_fn
     kcde_control$loss_fn_prediction_args <- loss_fn_prediction_args
     kcde_control$loss_args <- loss_args
-    
+
     kcde_control$variable_selection_method <- variable_selection_method
-    
+
     kcde_control$par_packages <- par_packages
     kcde_control$par_cores <- par_cores
-    
+
     kcde_control$na.action <- na.action
-    
+
     return(kcde_control)
 }
 
 #' Assemble a list of kcde_control parameters for the kcde function with default
 #'     values
-#' 
+#'
 #' @param X_names a character vector of length >= 1 containing names of
 #'     variables in the data data frame to use in forming the lagged
 #'     observation process used for calculating weights
 #' @param y_names a character vector of length 1 containing the name of the
 #'     variable in the data data frame to use as the target for prediction
 #' @param data a data frame where rows are consecutive observations
-#' 
+#'
 #' @return the list of kcde_control parameters
 create_kcde_control_default <- function(X_names, y_names, data) {
     kcde_control <- list()
-    
+
     kcde_control$X_names <- X_names
     kcde_control$y_names <- y_names
-    
+
     kcde_control$kernel_components <- get_default_kernel_components(X_names,
-        y_names,
-        time_name,
-        data)
-    
+                                                                    y_names,
+                                                                    time_name,
+                                                                    data)
+
     kcde_control$loss_fn_name <- "mase"
     kcde_control$loss_fn_args <- list()
-    
+
     return(kcde_control)
 }
 
 #' Get default kernel functions based on a brief look at the data.  This is
 #' unreliable.  Update to return periodic_kernel if X_names[i] == time_name?
-#' 
+#'
 #' @param X_names a character vector of length >= 1 containing names of
 #'     variables in the data data frame to use in forming the lagged
 #'     observation process used for calculating weights
@@ -138,16 +139,15 @@ create_kcde_control_default <- function(X_names, y_names, data) {
 #' @param time_name (optional) a character vector of length 1 containing the
 #'     name of the variable in the data data frame to use as the time.
 #' @param data a data frame where rows are consecutive observations
-#' 
+#'
 #' @return a list of default parameters for kernel components -- probably all bad
 get_default_kernel_components <- function(X_names, y_names, data) {
-	stop("Function get_default_kernel_components is not yet implemented")
-
+    stop("Function get_default_kernel_components is not yet implemented")
     return(kernel_components)
 }
 
 #' Validate kcde_control parameters for kcde -- not implemented
-#' 
+#'
 #' @param kcde_control a list of kcde_control parameters for kcde
 #' @param X_names a character vector of length >= 1 containing names of
 #'     variables in the data data frame to use in forming the lagged
@@ -157,8 +157,8 @@ get_default_kernel_components <- function(X_names, y_names, data) {
 #' @param time_name (optional) a character vector of length 1 containing the
 #'     name of the variable in the data data frame to use as the time.
 #' @param data a data frame where rows are consecutive observations
-#' 
+#'
 #' @return no return value -- either stops with an error or not.
 validate_kcde_control <- function(kcde_control, X_names, y_names, time_name, data) {
-#    warning("kcde kcde_control parameter validation not yet implemented")
+    stop("kcde kcde_control parameter validation not yet implemented")
 }
