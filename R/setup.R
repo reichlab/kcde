@@ -3,7 +3,6 @@
 ## create_kcde_control
 ## create_kcde_control_default
 ## get_default_kernel_components
-## validate_kcde_control
 
 
 #' Assemble a list of kcde_control parameters for the kcde function with
@@ -143,22 +142,5 @@ create_kcde_control_default <- function(X_names, y_names, data) {
 #' @return a list of default parameters for kernel components -- probably all bad
 get_default_kernel_components <- function(X_names, y_names, data) {
     stop("Function get_default_kernel_components is not yet implemented")
-    return(kernel_components)
-}
-
-#' Validate kcde_control parameters for kcde -- not implemented
-#'
-#' @param kcde_control a list of kcde_control parameters for kcde
-#' @param X_names a character vector of length >= 1 containing names of
-#'     variables in the data data frame to use in forming the lagged
-#'     observation process used for calculating weights
-#' @param y_names a character vector of length 1 containing the name of the
-#'     variable in the data data frame to use as the target for prediction
-#' @param time_name (optional) a character vector of length 1 containing the
-#'     name of the variable in the data data frame to use as the time.
-#' @param data a data frame where rows are consecutive observations
-#'
-#' @return no return value -- either stops with an error or not.
-validate_kcde_control <- function(kcde_control, X_names, y_names, time_name, data) {
-    stop("kcde kcde_control parameter validation not yet implemented")
+    ## return(kernel_components)
 }
