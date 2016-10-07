@@ -1,6 +1,6 @@
 ## Functions to set up the estimation routine for kcde
 ##
-## create_kcde_control
+## create_kcde_control (exported)
 ## create_kcde_control_default
 ## get_default_kernel_components
 
@@ -55,6 +55,7 @@
 #' @param na.action a character string specifying how NA values should be handled.
 #'
 #' @return the (at this point, unvalidated) list of kcde_control parameters
+#' @export
 create_kcde_control <- function(X_names,
                                 y_names,
                                 time_name,

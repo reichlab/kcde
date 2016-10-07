@@ -11,6 +11,9 @@ mase(obs, pred)
 
 \item{pred}{vector of point predictions}
 }
+\value{
+mean absolute scaled error for given vectors
+}
 \description{
 Compute Mean Absolute Scaled Error (MASE) to evaluate point predictions
 }

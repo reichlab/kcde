@@ -1,9 +1,9 @@
 ## Auxiliary functions for use with signal::butter, the Butterworth filter
 ##
-## initialize_filter_params_butterworth_filter
-## vectorize_filter_params_butterworth_filter
-## update_filter_params_from_vectorized_butterworth_filter
-## compute_filter_args_butterworth_filter
+## initialize_filter_params_butterworth_filter (exported)
+## vectorize_filter_params_butterworth_filter (exported)
+## update_filter_params_from_vectorized_butterworth_filter (exported)
+## compute_filter_args_butterworth_filter (exported)
 
 
 #' Initialize parameters of the pm_opt_filter on evaluation scale.
@@ -15,6 +15,7 @@
 #' @param ... absorb arguments
 #'
 #' @return initialized list of parameters
+#' @export
 initialize_filter_params_butterworth_filter <- function(prev_phi,
                                                         x,
                                                         ...) {
@@ -33,6 +34,7 @@ initialize_filter_params_butterworth_filter <- function(prev_phi,
 #' @param phi list of parameters on evaluation scale
 #'
 #' @return vector of parameters on estimation scale
+#' @export
 vectorize_filter_params_butterworth_filter <- function(phi) {
     return(phi$logit_w)
 }
@@ -43,6 +45,7 @@ vectorize_filter_params_butterworth_filter <- function(phi) {
 #' @param phi a list of parameters to update
 #'
 #' @return updated list phi
+#' @export
 update_filter_params_from_vectorized_butterworth_filter <-
     function(phi_est_vector, phi) {
         ## update parameters on logit scale -- so that they can be returned
@@ -64,6 +67,7 @@ update_filter_params_from_vectorized_butterworth_filter <-
 #'
 #' @return named list with parameters for a call to signal::filter.  Filter
 #'   coefficients are computed via signal::remez
+#' @export
 compute_filter_args_butterworth_filter <- function(phi, x) {
     ## Obtain Butterworth filter coefficients
     ## If W is too small or too large, we can get numerical instability in the filtering.

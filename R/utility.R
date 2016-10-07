@@ -1,21 +1,21 @@
 ## Miscellaneous utility functions
 ##
-## update_vars_and_offsets
-## compute_normalized_log_weights
-## compute_offset_obs_vecs
-## compute_na_rows_after_filter_and_offset
-## log_score_loss
-## neg_log_score_loss
-## mase_from_kernel_weights_and_centers
-## mae_from_kernel_weights_and_centers
-## get_inds_smallest_k
+## update_vars_and_offsets (exported)
+## compute_normalized_log_weights (exported)
+## compute_offset_obs_vecs (exported)
+## compute_na_rows_after_filter_and_offset (exported)
+## log_score_loss (exported)
+## neg_log_score_loss (exported)
+## mase_from_kernel_weights_and_centers (exported)
+## mae_from_kernel_weights_and_centers (exported)
+## get_inds_smallest_k (exported)
 ## logspace_sub
 ## logspace_add
 ## logspace_sum
 ## logspace_sum_matrix_rows
 ## logspace_sub_matrix_rows
-## mae
-## mase
+## mae (exported)
+## mase (exported)
 
 #' Update the list that keeps track of which combinations of variables and
 #' offsets are included in the model by adding or removing (as appropriate) the
@@ -29,6 +29,7 @@
 #' @param update_offset_type type of the offset to update
 #'
 #' @return updated list of variable/lag combinations
+#' @export
 update_vars_and_offsets <- function(prev_vars_and_offsets,
                                     update_var_name,
                                     update_offset_value,
@@ -85,6 +86,7 @@ update_vars_and_offsets <- function(prev_vars_and_offsets,
 #' @param log_weights: a vector of log(w) where w is proportional to the weights
 #'
 #' @return normalized log_weights so that sum(exp(log_weights)) = 1
+#' @export
 compute_normalized_log_weights <- function(log_weights) {
     ## normalize
     norm_const <-
@@ -123,6 +125,7 @@ compute_normalized_log_weights <- function(log_weights) {
 #'     "na.omit" (drops) and "na.pass" (do nothing)
 #'
 #' @return final data frame
+#' @export
 compute_offset_obs_vecs <- function(data,
                                     filter_control,
                                     phi,
@@ -276,6 +279,7 @@ compute_offset_obs_vecs <- function(data,
 #'
 #' @return integer vector with rows of data that contain NA values after
 #'     filtering and offsetting observations
+#' @export
 compute_na_rows_after_filter_and_offset <- function(data,
                                                     phi,
                                                     vars_and_offsets,
@@ -321,12 +325,14 @@ compute_na_rows_after_filter_and_offset <- function(data,
 
 #' Compute log score based on a vector of log(p(data)) where p is a predictive
 #' distribution
+#' @export
 log_score_loss <- function(prediction_result, ...) {
     return(sum(prediction_result))
 }
 
 #' Compute negative log score based on a vector of log(p(data)) where p is a
 #' predictive distribution
+#' @export
 neg_log_score_loss <- function(prediction_result, ...) {
     return(-1 * sum(prediction_result))
 }
@@ -352,6 +358,7 @@ neg_log_score_loss <- function(prediction_result, ...) {
 #'
 #' @return abs(obs - prediction) where prediction is the weighted mean of the
 #'     kernel centers.
+#' @export
 mae_from_kernel_weights_and_centers <-
     function(kernel_weights_and_centers,
              obs) {
@@ -366,6 +373,7 @@ mae_from_kernel_weights_and_centers <-
 #'
 #' @return a vector of length k containing the indices of the k smallest
 #'     elements of v, in ascending order.
+#' @export
 get_inds_smallest_k <- function(v, k) {
     take <- if (k > length(v))
         length(v)
@@ -385,6 +393,7 @@ get_inds_smallest_k <- function(v, k) {
 #' @param logy subtrahend
 #'
 #' @return result of the subtraction
+#' @useDynLib kcde logspace_sub_C
 logspace_sub <- function(logx, logy) {
     return(.Call("logspace_sub_C", as.numeric(logx), as.numeric(logy)))
 }
@@ -395,6 +404,7 @@ logspace_sub <- function(logx, logy) {
 #' @param logy second number
 #'
 #' @return sum of the numbers
+#' @useDynLib kcde logspace_add_C
 logspace_add <- function(logx, logy) {
     return(.Call("logspace_add_C", as.numeric(logx), as.numeric(logy)))
 }
@@ -414,6 +424,7 @@ logspace_sum <- function(logx) {
 #' @param logX the matrix to sum
 #'
 #' @return a vector with each element summing corresponding row of matrix
+#' @useDynLib kcde logspace_sum_matrix_rows_C
 logspace_sum_matrix_rows <- function(logX) {
     return(.Call(
         "logspace_sum_matrix_rows_C",
@@ -429,6 +440,7 @@ logspace_sum_matrix_rows <- function(logX) {
 #'
 #' @return a vector with each element being the difference of corresponding
 #'     elements in the first and second column
+#' @useDynLib kcde logspace_sub_matrix_rows_C
 logspace_sub_matrix_rows <- function(logX) {
     if (!is.matrix(logX) || !identical(ncol(logX), 2L))
         stop("logX must be a matrix with 2 columns")
@@ -449,6 +461,7 @@ logspace_sub_matrix_rows <- function(logX) {
 #' @param pred vector of point predictions
 #'
 #' @return mean absolute error for given vectors
+#' @export
 mae <- function(obs, pred) {
     if (length(obs) != length(pred)) {
         stop("arguments must have the same length")
@@ -462,6 +475,7 @@ mae <- function(obs, pred) {
 #' @param pred vector of point predictions
 #'
 #' @return mean absolute scaled error for given vectors
+#' @export
 mase <- function(obs, pred) {
     mean_forecast_error <- mae(obs, pred)
     mean_naive_error <- mae(obs[-length(obs)], obs[-1])

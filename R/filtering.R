@@ -1,14 +1,14 @@
 ## Functions for interaction between kcde estimation and prediction routines and linear filtering
 ##
-## initialize_phi
-## extract_vectorized_phi_est_from_phi
-## update_phi_from_vectorized_phi_est
-## get_phi_optim_bounds
-## compute_filter_values
-## two_pass_stats_filter
-## two_pass_signal_filter
-## one_pass_signal_filter
-## interior_linear_interpolation
+## initialize_phi (exported)
+## extract_vectorized_phi_est_from_phi (exported)
+## update_phi_from_vectorized_phi_est (exported)
+## get_phi_optim_bounds (exported)
+## compute_filter_values (exported)
+## two_pass_stats_filter (exported)
+## two_pass_signal_filter (exported)
+## one_pass_signal_filter (exported)
+## interior_linear_interpolation (exported)
 
 
 #' Initialize parameter values for filtering
@@ -22,6 +22,7 @@
 #' @param kcde_control list of control parameters for kcde
 #'
 #' @return list of phi parameters
+#' @export
 initialize_phi <- function(prev_phi,
                            updated_vars_and_offsets,
                            update_var_name,
@@ -81,6 +82,7 @@ initialize_phi <- function(prev_phi,
 #' @param filter_control control parameters for the kcde fit
 #'
 #' @return numeric vector with parameter values
+#' @export
 extract_vectorized_phi_est_from_phi <- function(phi,
                                                 filter_control) {
     phi_vector <- c()
@@ -111,6 +113,7 @@ extract_vectorized_phi_est_from_phi <- function(phi,
 #' @return list of lists of parameter values -- outer list has one component
 #'     for each filter function, inner list has one component
 #'     for each parameter used in the corresponding filter function
+#' @export
 update_phi_from_vectorized_phi_est <- function(phi_est_vector,
                                                phi,
                                                filter_control) {
@@ -148,6 +151,7 @@ update_phi_from_vectorized_phi_est <- function(phi_est_vector,
 #'
 #' @return list with two components: lower and upper, giving vectors
 #'   with lower and upper bounds for possible parameter values
+#' @export
 get_phi_optim_bounds <- function(phi,
                                  filter_control) {
     lower <- NULL
@@ -181,6 +185,7 @@ get_phi_optim_bounds <- function(phi,
 #'     corresponding filter function.
 #' @param kcde_control a list of kcde_control parameters for kcde
 #' @param log boolean; if TRUE (default), return filter values on the log scale
+#' @export
 compute_filter_values <- function(data,
                                   filter_control,
                                   phi) {
@@ -261,6 +266,7 @@ compute_filter_values <- function(data,
 #' @param sides sides for a call to stats::filter -- see the documentation at stats::filter
 #' @param circular circular for a call to stats::filter -- see the documentation at stats::filter
 #'
+#' @export
 two_pass_stats_filter <-
     function(filter, x, method, sides, circular) {
         #    y <- stats::filter(filter = filter, x = c(x, numeric(2 * length(filter))), method = method, sides = sides, circular = circular)
@@ -302,6 +308,7 @@ two_pass_stats_filter <-
 #' @param sides sides for a call to stats::filter -- see the documentation at stats::filter
 #' @param circular circular for a call to stats::filter -- see the documentation at stats::filter
 #'
+#' @export
 two_pass_signal_filter <- function(filt, x, impute_fn) {
     ## Pad end with last observed value
     filt_Arma <- signal::as.Arma(filt)
@@ -349,6 +356,7 @@ two_pass_signal_filter <- function(filt, x, impute_fn) {
 #' @param sides sides for a call to stats::filter -- see the documentation at stats::filter
 #' @param circular circular for a call to stats::filter -- see the documentation at stats::filter
 #'
+#' @export
 one_pass_signal_filter <- function(filt, x, impute_fn) {
     ## Pad end with last observed value
     filt_Arma <- signal::as.Arma(filt)
@@ -387,6 +395,7 @@ one_pass_signal_filter <- function(filt, x, impute_fn) {
 #'
 #' @return a matrix with nrow = length(x) and one column, with interior NAs in x
 #'   replaced by linearly interpolated values
+#' @export
 interior_linear_interpolation <- function(x) {
     return(matrix(approx(seq_along(x), x, seq_along(x))$y))
 }

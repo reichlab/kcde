@@ -11,9 +11,15 @@ compute_offset_obs_vecs(data, filter_control, phi, vars_and_offsets, time_name,
 \arguments{
 \item{data}{a data frame}
 
-\item{vars_and_offsets}{a named list: The component name matches the name of 
+\item{filter_control}{control for filtering data (compute_filter_values)}
+
+\item{phi}{phi parameter for filtering (compute_filter_values)}
+
+\item{vars_and_offsets}{a named list: The component name matches the name of
 one of the variables in data, and the component value is an integer
 vector of lags to include for that variable}
+
+\item{time_name}{time names for adding to data columns}
 
 \item{leading_rows_to_drop}{an integer specifying the number of leading rows
 to drop.  This will typically be the largest lag used, but could be larger
@@ -29,8 +35,11 @@ additional rows to drop.  For example, if we are performing
 cross-validation, we might want to drop all rows within +/- 52 indices of
 the current prediction target.}
 
-\item{rows_to_drop}{an integer vector specifying rows to drop after computing
-lagged observation vectors.}
+\item{na.action}{string specifying action to take with rows with NA. Supports
+"na.omit" (drops) and "na.pass" (do nothing)}
+}
+\value{
+final data frame
 }
 \description{
 Compute a data frame with offset (lag and/or lead) observation vectors

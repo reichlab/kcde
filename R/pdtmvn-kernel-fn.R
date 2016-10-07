@@ -1,14 +1,14 @@
 ## pdtmvn kernel function
 ##
-## get_col_inds_continuous_discrete_vars_used
-## pdtmvn_kernel
-## rpdtmvn_kernel
-## compute_pdtmvn_kernel_bw_params_from_bw_eigen
-## compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp
-## get_theta_optim_bounds_pdtmvn_kernel
-## vectorize_params_pdtmvn_kernel
-## update_theta_from_vectorized_theta_est_pdtmvn_kernel
-## initialize_params_pdtmvn_kernel
+## get_col_inds_continuous_discrete_vars_used (exported)
+## pdtmvn_kernel (exported)
+## rpdtmvn_kernel (exported)
+## compute_pdtmvn_kernel_bw_params_from_bw_eigen (exported)
+## compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp (exported)
+## get_theta_optim_bounds_pdtmvn_kernel (exported)
+## vectorize_params_pdtmvn_kernel (exported)
+## update_theta_from_vectorized_theta_est_pdtmvn_kernel (exported)
+## initialize_params_pdtmvn_kernel (exported)
 
 #' Create two integer vectors with indices of columns in x corresponding to
 #' continuous variables and discrete variables.  These integer vectors are
@@ -23,6 +23,7 @@
 #' @return list with two components: continuous_vars is an integer vector of
 #'     columns in x corresponding to continuous variables and discrete_vars is
 #'     an integer vector of columns in x corresponding to discrete variables
+#' @export
 get_col_inds_continuous_discrete_vars_used <- function(x_colnames,
                                                        continuous_vars,
                                                        discrete_vars) {
@@ -72,6 +73,7 @@ get_col_inds_continuous_discrete_vars_used <- function(x_colnames,
 #'
 #' @return the value of the kernel function given by the pdtmvn distribution
 #'     at x.
+#' @export
 pdtmvn_kernel <- function(x,
                           center,
                           bw,
@@ -245,6 +247,7 @@ pdtmvn_kernel <- function(x,
 #'
 #' @return the value of the kernel function given by the pdtmvn distribution
 #'     at x.
+#' @export
 rpdtmvn_kernel <- function(n,
                            conditioning_obs,
                            center,
@@ -306,6 +309,7 @@ rpdtmvn_kernel <- function(n,
 #'
 #' @return Named list with four components: bw, bw_continuous,
 #'     conditional_bw_discrete, and conditional_center_discrete_offset_multiplier
+#' @export
 compute_pdtmvn_kernel_bw_params_from_bw_eigen <-
     function(multilogit_bw_evecs,
              bw_evecs,
@@ -354,6 +358,7 @@ compute_pdtmvn_kernel_bw_params_from_bw_eigen <-
 #'
 #' @return Named list with four components: bw, bw_continuous,
 #'     conditional_bw_discrete, and conditional_center_discrete_offset_multiplier
+#' @export
 compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp <-
     function(bw_chol_decomp,
              bw_chol_decomp_vec,
@@ -392,6 +397,7 @@ compute_pdtmvn_kernel_bw_params_from_bw_chol_decomp <-
 #' @param ... mop up arguments
 #'
 #' @return list with two components: lower and upper, numeric vectors
+#' @export
 get_theta_optim_bounds_pdtmvn_kernel <- function(theta_list, ...) {
     if (identical(theta_list$parameterization,
                   "bw-diagonalized-est-eigenvalues")) {
@@ -437,6 +443,7 @@ get_theta_optim_bounds_pdtmvn_kernel <- function(theta_list, ...) {
 #'
 #' @return vector containing parameters that are estimated on a scale
 #'     suitable for numerical optimization
+#' @export
 vectorize_params_pdtmvn_kernel <- function(theta_list, ...) {
     if (identical(theta_list$parameterization,
                   "bw-diagonalized-est-eigenvalues")) {
@@ -469,6 +476,7 @@ vectorize_params_pdtmvn_kernel <- function(theta_list, ...) {
 #' @param kcde_control list of control parameters to kcde
 #'
 #' @return list of parameters to pdtmvn_kernel
+#' @export
 update_theta_from_vectorized_theta_est_pdtmvn_kernel <-
     function(theta_est_vector, theta) {
         if (identical(theta$parameterization,
@@ -570,6 +578,7 @@ update_theta_from_vectorized_theta_est_pdtmvn_kernel <-
 #' @param ... used to absorb other arguments in the function call
 #'
 #' @return list with initial values of parameters to the pdtmvn_kernel
+#' @export
 initialize_params_pdtmvn_kernel <- function(prev_theta,
                                             x,
                                             total_num_vars,

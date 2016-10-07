@@ -1,6 +1,6 @@
 ## Functions for parameter estimation
 ##
-## kcde
+## kcde (exported)
 ## est_kcde_params_stepwise_crossval
 ## est_kcde_params_stepwise_crossval_one_potential_step
 ## kcde_crossval_estimate_parameter_loss
@@ -21,6 +21,7 @@
 #'
 #' @return an object representing an estimated kcde model.  Currently, a list
 #'     with 7 components.
+#' @export
 kcde <- function(X_names,
                  y_names,
                  data,

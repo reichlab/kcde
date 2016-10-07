@@ -2,8 +2,10 @@
 % Please edit documentation in R/utility.R
 \name{compute_na_rows_after_filter_and_offset}
 \alias{compute_na_rows_after_filter_and_offset}
-\title{Compute rows of the data frame that contain NA values after performing the filtering and
-observation offset steps.}
+\title{Compute rows of the data frame that contain NA values after performing the
+filtering and observation offset steps.  Also include values of
+prediction_inds_not_included that were specified in kcde_control, if
+applicable.}
 \usage{
 compute_na_rows_after_filter_and_offset(data, phi, vars_and_offsets,
   kcde_control)
@@ -19,11 +21,13 @@ and direction of offset}
 \item{kcde_control}{list of control parameters for kcde}
 }
 \value{
-integer vector with rows of data that contain na values after
-  filtering and offsetting observations
+integer vector with rows of data that contain NA values after
+    filtering and offsetting observations
 }
 \description{
-Compute rows of the data frame that contain NA values after performing the filtering and
-observation offset steps.
+Compute rows of the data frame that contain NA values after performing the
+filtering and observation offset steps.  Also include values of
+prediction_inds_not_included that were specified in kcde_control, if
+applicable.
 }
 

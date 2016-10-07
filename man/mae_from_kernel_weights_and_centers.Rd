@@ -2,7 +2,11 @@
 % Please edit documentation in R/utility.R
 \name{mae_from_kernel_weights_and_centers}
 \alias{mae_from_kernel_weights_and_centers}
-\title{Compute "mean" absolute error for one time point from prediction in the form
+\title{Compute MASE from predictions that are in the form of kernel weights and
+centers.  This is currently broken because we need predictions for a whole
+time series to compute MASE, and the current "implementation" only takes
+values for one time point.
+Compute "mean" absolute error for one time point from prediction in the form
 of kernel weights and centers.}
 \usage{
 mae_from_kernel_weights_and_centers(kernel_weights_and_centers, obs)
@@ -11,7 +15,7 @@ mae_from_kernel_weights_and_centers(kernel_weights_and_centers, obs)
 \item{kernel_weights_and_centers}{a named list with two components: weights
 is a vector of kernel weights, and centers is a vector of kernel centers}
 
-\item{obs}{is a numeric with length 1 containign the observed value for one
+\item{obs}{is a numeric with length 1 containing the observed value for one
 time point}
 }
 \value{
@@ -19,6 +23,10 @@ abs(obs - prediction) where prediction is the weighted mean of the
     kernel centers.
 }
 \description{
+Compute MASE from predictions that are in the form of kernel weights and
+centers.  This is currently broken because we need predictions for a whole
+time series to compute MASE, and the current "implementation" only takes
+values for one time point.
 Compute "mean" absolute error for one time point from prediction in the form
 of kernel weights and centers.
 }

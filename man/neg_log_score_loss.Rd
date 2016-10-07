@@ -2,11 +2,13 @@
 % Please edit documentation in R/utility.R
 \name{neg_log_score_loss}
 \alias{neg_log_score_loss}
-\title{Compute negative log score based on a vector of log(p(data)) where p is a predictive distribution}
+\title{Compute negative log score based on a vector of log(p(data)) where p is a
+predictive distribution}
 \usage{
 neg_log_score_loss(prediction_result, ...)
 }
 \description{
-Compute negative log score based on a vector of log(p(data)) where p is a predictive distribution
+Compute negative log score based on a vector of log(p(data)) where p is a
+predictive distribution
 }
 

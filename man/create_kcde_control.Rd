@@ -6,9 +6,10 @@
     user-specified values.}
 \usage{
 create_kcde_control(X_names, y_names, time_name, prediction_horizons,
-  kernel_components, filter_control, crossval_buffer, loss_fn,
-  loss_fn_prediction_args, loss_args, variable_selection_method = "stepwise",
-  par_packages = NULL, par_cores = 1L, na.action = "na.omit")
+  kernel_components, filter_control, crossval_buffer,
+  prediction_inds_not_included, loss_fn, loss_fn_prediction_args, loss_args,
+  variable_selection_method = "stepwise", par_packages = NULL,
+  par_cores = 1L, na.action = "na.omit")
 }
 \arguments{
 \item{X_names}{a character vector of length >= 1 containing names of
@@ -47,6 +48,12 @@ kernel function.  Each component is a list with the following entries:
 \item{crossval_buffer}{during cross-validation, the number of indices before
 the time at which we are making a prediction to drop from the "training
 examples".}
+
+\item{prediction_inds_not_included}{an integer vector specifying indices of
+the data set that is provided in estimation that should not be included
+in the calculation of the loss.  The observations at these indices may
+still be included as conditioning variables used to make predictions at
+other times.}
 
 \item{loss_args}{a named list giving arguments to the loss function}
 

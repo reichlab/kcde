@@ -2,15 +2,17 @@
 % Please edit documentation in R/utility.R
 \name{update_vars_and_offsets}
 \alias{update_vars_and_offsets}
-\title{Update the list that keeps track of which combinations of variables and offsets
-are included in the model by adding or removing (as appropriate) the
-combination specified by update_var_name, update_offset_values, and update_offset_type}
+\title{Update the list that keeps track of which combinations of variables and
+offsets are included in the model by adding or removing (as appropriate) the
+combination specified by update_var_name, update_offset_values, and
+update_offset_type}
 \usage{
 update_vars_and_offsets(prev_vars_and_offsets, update_var_name,
   update_offset_value, update_offset_type)
 }
 \arguments{
-\item{prev_vars_and_offsets}{list of previous variable/lag combinations to update}
+\item{prev_vars_and_offsets}{list of previous variable/lag combinations to
+update}
 
 \item{update_var_name}{name of the variable to update}
 
@@ -22,8 +24,9 @@ update_vars_and_offsets(prev_vars_and_offsets, update_var_name,
 updated list of variable/lag combinations
 }
 \description{
-Update the list that keeps track of which combinations of variables and offsets
-are included in the model by adding or removing (as appropriate) the
-combination specified by update_var_name, update_offset_values, and update_offset_type
+Update the list that keeps track of which combinations of variables and
+offsets are included in the model by adding or removing (as appropriate) the
+combination specified by update_var_name, update_offset_values, and
+update_offset_type
 }
 

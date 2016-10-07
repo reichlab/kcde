@@ -1,11 +1,11 @@
 ## Functions for interaction between kcde estimation and prediction routines and kernel functions
 ##
-## initialize_theta
-## get_theta_optim_bounds
-## extract_vectorized_theta_est_from_theta
-## update_theta_from_vectorized_theta_est
-## compute_kernel_values
-## simulate_values_from_product_kernel
+## initialize_theta (exported)
+## get_theta_optim_bounds (exported)
+## extract_vectorized_theta_est_from_theta (exported)
+## update_theta_from_vectorized_theta_est (exported)
+## compute_kernel_values (exported)
+## simulate_values_from_product_kernel (exported)
 
 
 #' Initialize parameter values.
@@ -19,6 +19,7 @@
 #' @param kcde_control list of control parameters for kcde
 #'
 #' @return list of theta parameters
+#' @export
 initialize_theta <- function(prev_theta,
                              updated_vars_and_offsets,
                              update_var_name,
@@ -89,6 +90,7 @@ initialize_theta <- function(prev_theta,
 #' @return list with two components: lower and upper, giving vectors
 #'   with lower and upper bounds for possible parameter values
 #'   Initialize parameter values.
+#' @export
 get_theta_optim_bounds <- function(theta,
                                    kcde_control) {
     lower <- NULL
@@ -123,6 +125,7 @@ get_theta_optim_bounds <- function(theta,
 #' @param kcde_control control parameters for the kcde fit
 #'
 #' @return numeric vector with parameter values
+#' @export
 extract_vectorized_theta_est_from_theta <- function(theta,
                                                     vars_and_offsets,
                                                     kcde_control) {
@@ -159,6 +162,7 @@ extract_vectorized_theta_est_from_theta <- function(theta,
 #' @return list of lists of parameter values -- outer list has one component
 #'     for each kernel function, inner list has one component
 #'     for each parameter used in the corresponding kernel function
+#' @export
 update_theta_from_vectorized_theta_est <- function(theta_est_vector,
                                                    theta,
                                                    kcde_control) {
@@ -200,6 +204,8 @@ update_theta_from_vectorized_theta_est <- function(theta_est_vector,
 #'     corresponding kernel function.
 #' @param kcde_control a list of kcde_control parameters for kcde
 #' @param log boolean; if TRUE (default), return kernel values on the log scale
+#'
+#' @export
 compute_kernel_values <- function(train_obs,
                                   prediction_obs,
                                   kernel_components,
@@ -264,6 +270,8 @@ compute_kernel_values <- function(train_obs,
 #'     corresponding kernel function.
 #' @param kcde_control a list of kcde_control parameters for kcde
 #' @param log boolean; if TRUE (default), return kernel values on the log scale
+#'
+#' @export
 simulate_values_from_product_kernel <- function(n,
                                                 conditioning_obs,
                                                 center,

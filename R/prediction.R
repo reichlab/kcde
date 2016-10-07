@@ -1,6 +1,6 @@
 ## Functions to perform prediction from new data and an object with a fit
 ##
-## kcde_predict
+## kcde_predict (exported)
 ## kcde_predict_given_lagged_obs
 ## kcde_kernel_centers_and_weights_predict_given_lagged_obs
 ## kcde_point_predict_given_lagged_obs
@@ -19,6 +19,7 @@
 #'
 #' @return an object with prediction results; the contents depend on the value
 #'     of prediction_type
+#' @export
 kcde_predict <- function(kcde_fit,
                          prediction_data,
                          leading_rows_to_drop = max(kcde_fit$vars_and_offsets$offset_value[kcde_fit$vars_and_offsets$offset_type == "lag"]),

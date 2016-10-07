@@ -3,10 +3,10 @@
 ## of the method in the signal package has some issues that we run into when
 ## attempting to use numerical methods to optimize band parameters.
 ##
-## initialize_filter_params_pm_opt_filter
-## vectorize_filter_params_pm_opt_filter
-## update_filter_params_from_vectorized_pm_opt_filter
-## compute_filter_args_pm_opt_filter
+## initialize_filter_params_pm_opt_filter (exported)
+## vectorize_filter_params_pm_opt_filter (exported)
+## update_filter_params_from_vectorized_pm_opt_filter (exported)
+## compute_filter_args_pm_opt_filter (exported)
 
 #' Initialize parameters of the pm_opt_filter on evaluation scale.
 #' In principle, we could/should do something data based here?  Instead, I just made up
@@ -17,6 +17,7 @@
 #' @param ... absorb arguments
 #'
 #' @return initialized list of parameters
+#' @export
 initialize_filter_params_pm_opt_filter <- function(prev_phi,
                                                    x,
                                                    ...) {
@@ -43,6 +44,7 @@ initialize_filter_params_pm_opt_filter <- function(prev_phi,
 #' @param phi list of parameters on evaluation scale
 #'
 #' @return vector of parameters on estimation scale
+#' @export
 vectorize_filter_params_pm_opt_filter <- function(phi) {
     return(c(phi$multilogit_f_c_0, phi$multilogit_f_c_1_minus_f_c_0))
 }
@@ -53,6 +55,7 @@ vectorize_filter_params_pm_opt_filter <- function(phi) {
 #' @param phi a list of parameters to update
 #'
 #' @return updated list phi
+#' @export
 update_filter_params_from_vectorized_pm_opt_filter <-
     function(phi_est_vector, phi) {
         ## update parameters on multilogit scale -- so that they can be returned
@@ -95,6 +98,7 @@ update_filter_params_from_vectorized_pm_opt_filter <-
 #'
 #' @return named list with parameters for a call to signal::filter.  Filter
 #'   coefficients are computed via signal::remez
+#' @export
 compute_filter_args_pm_opt_filter <- function(phi, x) {
     return(
         list(

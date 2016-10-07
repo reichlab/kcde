@@ -2,8 +2,7 @@
 % Please edit documentation in R/utility.R
 \name{get_inds_smallest_k}
 \alias{get_inds_smallest_k}
-\title{Get the indices of the smallest k elements of v.  This code currently assumes
-that k >= length(v)}
+\title{Get the indices of the smallest k elements of v.}
 \usage{
 get_inds_smallest_k(v, k)
 }
@@ -14,10 +13,9 @@ get_inds_smallest_k(v, k)
 }
 \value{
 a vector of length k containing the indices of the k smallest
-  elements of v, in ascending order.
+    elements of v, in ascending order.
 }
 \description{
-Get the indices of the smallest k elements of v.  This code currently assumes
-that k >= length(v)
+Get the indices of the smallest k elements of v.
 }
 

@@ -1,10 +1,10 @@
 ## periodic kernel function
 ##
-## periodic_kernel
-## get_theta_optim_bounds_periodic_kernel
-## vectorize_params_periodic_kernel
-## update_theta_from_vectorized_theta_est_periodic_kernel
-## initialize_params_periodic_kernel
+## periodic_kernel (exported)
+## get_theta_optim_bounds_periodic_kernel (exported)
+## vectorize_params_periodic_kernel (exported)
+## update_theta_from_vectorized_theta_est_periodic_kernel (exported)
+## initialize_params_periodic_kernel (exported)
 
 
 #' Evaluate the periodic kernel function
@@ -15,6 +15,7 @@
 #' @param bw kernel bandwidth
 #'
 #' @return vector of the kernel function value at each point in x
+#' @export
 periodic_kernel <- function(x, center, period, bw, log, ...) {
     result <-
         -0.5 * (sin(period * (
@@ -33,6 +34,7 @@ periodic_kernel <- function(x, center, period, bw, log, ...) {
 #' @param ... mop up arguments
 #'
 #' @return list with two components: lower and upper, numeric vectors
+#' @export
 get_theta_optim_bounds_periodic_kernel <- function(...) {
     return(list(lower = -50,
                 upper = Inf))
@@ -48,6 +50,7 @@ get_theta_optim_bounds_periodic_kernel <- function(...) {
 #'
 #' @return vector containing parameters that are estimated on a scale
 #'     suitable for numerical optimization
+#' @export
 vectorize_params_periodic_kernel <-
     function(theta_list, parameterization, ...) {
         return(theta_list$log_bw)
@@ -69,6 +72,7 @@ vectorize_params_periodic_kernel <-
 #' @param kcde_control list of control parameters to kcde
 #'
 #' @return list of parameters to pdtmvn_kernel
+#' @export
 update_theta_from_vectorized_theta_est_periodic_kernel <-
     function(theta_est_vector, theta) {
         theta$log_bw <- theta_est_vector[1]
@@ -91,6 +95,7 @@ update_theta_from_vectorized_theta_est_periodic_kernel <-
 #' @param ... used to absorb other arguments in the function call
 #'
 #' @return list with initial values of parameters to the periodic_kernel
+#' @export
 initialize_params_periodic_kernel <- function(x,
                                               prev_theta,
                                               total_num_vars,

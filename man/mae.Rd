@@ -11,6 +11,9 @@ mae(obs, pred)
 
 \item{pred}{vector of point predictions}
 }
+\value{
+mean absolute error for given vectors
+}
 \description{
 Compute Mean Absolute Error to evaluate point predictions
 }

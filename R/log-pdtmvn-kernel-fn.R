@@ -1,11 +1,11 @@
 ## pdtmvn kernel function
 ##
-## log_pdtmvn_kernel
-## rlog_pdtmvn_kernel
-## vectorize_params_log_pdtmvn_kernel
-## update_theta_from_vectorized_theta_est_log_pdtmvn_kernel
-## initialize_params_log_pdtmvn_kernel
-## get_theta_optim_bounds_log_pdtmvn_kernel
+## log_pdtmvn_kernel (exported)
+## rlog_pdtmvn_kernel (exported)
+## vectorize_params_log_pdtmvn_kernel (exported)
+## update_theta_from_vectorized_theta_est_log_pdtmvn_kernel (exported)
+## initialize_params_log_pdtmvn_kernel (exported)
+## get_theta_optim_bounds_log_pdtmvn_kernel (exported)
 
 
 #' Evaluate the kernel function given by the log-pdtmvn distribution.
@@ -40,6 +40,7 @@
 #'
 #' @return the value of the kernel function given by the pdtmvn distribution
 #'     at x.
+#' @export
 log_pdtmvn_kernel <- function(x,
                               center,
                               bw,
@@ -137,6 +138,7 @@ log_pdtmvn_kernel <- function(x,
 #'
 #' @return the value of the kernel function given by the pdtmvn distribution
 #'     at x.
+#' @export
 rlog_pdtmvn_kernel <- function(n,
                                conditioning_obs,
                                center,
@@ -198,6 +200,7 @@ rlog_pdtmvn_kernel <- function(n,
 #'
 #' @return vector containing parameters that are estimated on a scale
 #'     suitable for numerical optimization
+#' @export
 vectorize_params_log_pdtmvn_kernel <- function(theta_list, ...) {
     return(vectorize_params_pdtmvn_kernel(theta_list = theta_list))
 }
@@ -218,6 +221,7 @@ vectorize_params_log_pdtmvn_kernel <- function(theta_list, ...) {
 #' @param kcde_control list of control parameters to kcde
 #'
 #' @return list of parameters to pdtmvn_kernel
+#' @export
 update_theta_from_vectorized_theta_est_log_pdtmvn_kernel <-
     function(theta_est_vector, theta) {
         return(
@@ -241,6 +245,7 @@ update_theta_from_vectorized_theta_est_log_pdtmvn_kernel <-
 #' @param ... used to absorb other arguments in the function call
 #'
 #' @return list with initial values of parameters to the pdtmvn_kernel
+#' @export
 initialize_params_log_pdtmvn_kernel <- function(prev_theta,
                                                 x,
                                                 total_num_vars,
@@ -264,6 +269,7 @@ initialize_params_log_pdtmvn_kernel <- function(prev_theta,
 #' @param ... mop up arguments
 #'
 #' @return list with two components: lower and upper, numeric vectors
+#' @export
 get_theta_optim_bounds_log_pdtmvn_kernel <-
     function(theta_list, ...) {
         return(get_theta_optim_bounds_pdtmvn_kernel(theta_list))
