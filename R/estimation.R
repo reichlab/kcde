@@ -259,15 +259,15 @@ est_kcde_params_stepwise_crossval <- function(data,
 #'     kernel parameter estimates in the updated model
 est_kcde_params_stepwise_crossval_one_potential_step <- function(
 		prev_vars_and_offsets,
-    	prev_theta,
-        prev_phi,
-        init_theta_vector,
-        init_phi_vector,
-    	update_var_name,
-    	update_lag_value,
-    	data,
-        all_na_drop_rows,
-        kcde_control) {
+    prev_theta,
+    prev_phi,
+    init_theta_vector,
+    init_phi_vector,
+    update_var_name,
+    update_lag_value,
+    data,
+    all_na_drop_rows,
+    kcde_control) {
     ## updated variable and lag combinations included in model
     updated_vars_and_offsets <- update_vars_and_offsets(
         prev_vars_and_offsets = prev_vars_and_offsets,

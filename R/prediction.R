@@ -40,7 +40,7 @@ kcde_predict <- function(kcde_fit,
         time_name = kcde_fit$kcde_control$time_name,
         leading_rows_to_drop = leading_rows_to_drop,
         trailing_rows_to_drop = trailing_rows_to_drop,
-        additional_rows_to_drop = NULL,
+        additional_rows_to_drop = kcde_fit$kcde_control$prediction_inds_not_included,
         na.action = kcde_fit$kcde_control$na.action)
     
     ## Keep only non-NA rows in training data
@@ -59,13 +59,19 @@ kcde_predict <- function(kcde_fit,
         leading_rows_to_drop = 0L,
         trailing_rows_to_drop = 0L,
         additional_rows_to_drop = NULL,
-        na.action = kcde_fit$kcde_control$na.action)
+        na.action = "na.pass")
     
     ## Keep only last row in prediction data
     prediction_examples <- prediction_examples[nrow(prediction_examples), , drop = FALSE]
     
     predictive_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[kcde_fit$vars_and_offsets$offset_type == "lag"]
     target_var_combined_names <- kcde_fit$vars_and_offsets$combined_name[kcde_fit$vars_and_offsets$offset_type == "horizon"]
+    
+    ## At present, can't handle missing values in predictive variables
+    if(any(is.na(prediction_examples[, predictive_var_combined_names]))) {
+      warning("Can't predict based on missing values!")
+      return(NA)
+    }
     
     ## do prediction
     return(kcde_predict_given_lagged_obs(
