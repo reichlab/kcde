@@ -1,6 +1,6 @@
 Package: kcde
 Title: Kernel conditional density estimation with flexible kernel
-    specifications.
+    specifications
 Version: 0.0.0.9000
 Authors@R: person("Evan", "Ray", , "elray@umass.edu", c("aut", "cre"))
 Description: A flexible implementation of kernel conditional density estimation.
@@ -19,11 +19,20 @@ Imports:
     robust,
     pdtmvn,
     plyr
-License: What license is it under?
+License: GPL-3
 LazyData: true
 Suggests:
     knitr,
-    testthat
+    testthat,
+    covr,
+    reshape,
+    cdcfluview,
+    dplyr,
+    lubridate,
+    ggplot2,
+    grid
+URL: https://github.com/reichlab/kcde
+BugReports: https://github.com/reichlab/kcde/issues
 VignetteBuilder: knitr
 Remotes: reichlab/pdtmvn
 RoxygenNote: 5.0.1
